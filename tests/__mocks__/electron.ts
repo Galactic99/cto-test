@@ -20,6 +20,14 @@ export const app = {
   on: jest.fn(),
   whenReady: jest.fn(() => Promise.resolve()),
   quit: jest.fn(),
+  setLoginItemSettings: jest.fn(),
+  getLoginItemSettings: jest.fn(() => ({
+    openAtLogin: false,
+    openAsHidden: false,
+    wasOpenedAtLogin: false,
+    wasOpenedAsHidden: false,
+    restoreState: false,
+  })),
 };
 
 export const ipcMain = {

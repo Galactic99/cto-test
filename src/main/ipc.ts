@@ -3,6 +3,7 @@ import { AppSettings } from '../types/settings';
 import { getSettings, setSettings } from './store/settings';
 import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
+import * as autostart from './system/autostart';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
@@ -33,6 +34,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('autostart:toggle', async (_event, enabled: boolean): Promise<void> => {
     console.log('[IPC] Autostart toggle requested:', enabled);
+    autostart.setAutostart(enabled);
   });
 }
 
