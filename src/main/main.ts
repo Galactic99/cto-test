@@ -5,6 +5,7 @@ import {
   destroySettingsWindow,
 } from './window';
 import { createSystemTray, destroySystemTray } from './tray';
+import { registerIpcHandlers, cleanupIpcHandlers } from './ipc';
 
 // Request single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -20,6 +21,9 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
+    // Register IPC handlers
+    registerIpcHandlers();
+
     // Create the settings window (hidden by default)
     createSettingsWindow();
 
@@ -52,6 +56,7 @@ if (!gotTheLock) {
 
   app.on('before-quit', () => {
     // Clean up resources before quitting
+    cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();
   });

@@ -1,19 +1,8 @@
 import React from 'react';
+import SettingsForm from './components/SettingsForm';
 
 function App(): React.ReactElement {
-  return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      height: '100vh',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      <h1>Wellness Reminder App</h1>
-      <p>Placeholder UI - Coming Soon</p>
-    </div>
-  );
+  return <SettingsForm />;
 }
 
 export default App;

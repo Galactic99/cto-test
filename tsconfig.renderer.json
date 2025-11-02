@@ -9,5 +9,5 @@
     "outDir": "./dist/renderer",
     "isolatedModules": true
   },
-  "include": ["src/renderer/**/*"]
+  "include": ["src/renderer/**/*", "src/types/**/*", "src/preload/**/*"]
 }
