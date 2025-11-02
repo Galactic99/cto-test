@@ -1,43 +1,58 @@
 import { app, BrowserWindow } from 'electron';
-import * as path from 'path';
+import {
+  createSettingsWindow,
+  showSettingsWindow,
+  destroySettingsWindow,
+} from './window';
+import { createSystemTray, destroySystemTray } from './tray';
 
-let mainWindow: BrowserWindow | null = null;
+// Request single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
 
-function createWindow(): void {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  app.quit();
+} else {
+  // Handle second instance attempts
+  app.on('second-instance', () => {
+    // Show the settings window when user tries to launch a second instance
+    showSettingsWindow();
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-  }
+  app.whenReady().then(() => {
+    // Create the settings window (hidden by default)
+    createSettingsWindow();
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+    // Create system tray
+    createSystemTray();
+
+    // Check if --hidden flag is present
+    const shouldStartHidden = process.argv.includes('--hidden');
+
+    if (!shouldStartHidden) {
+      // Show window on initial launch if not explicitly hidden
+      showSettingsWindow();
+    }
+
+    app.on('activate', () => {
+      // On macOS, show window when dock icon is clicked
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createSettingsWindow();
+      }
+      showSettingsWindow();
+    });
+  });
+
+  // Prevent window-all-closed from quitting the app
+  // The app should stay in the tray
+  app.on('window-all-closed', () => {
+    // Keep app running in tray on all platforms
+    // User must explicitly quit from tray menu
+  });
+
+  app.on('before-quit', () => {
+    // Clean up resources before quitting
+    destroySettingsWindow();
+    destroySystemTray();
   });
 }
-
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
