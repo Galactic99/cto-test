@@ -9,6 +9,7 @@ import { registerIpcHandlers, cleanupIpcHandlers } from './ipc';
 import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
 import * as autostart from './system/autostart';
+import * as sensorWindow from './sensorWindow';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -76,6 +77,7 @@ if (!gotTheLock) {
     blinkReminder.stop();
     postureReminder.stop();
     autostart.cleanup();
+    sensorWindow.destroySensorWindow();
     cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();

@@ -33,6 +33,20 @@ export default defineConfig({
           },
         },
       },
+      {
+        entry: 'src/preload/sensor.ts',
+        onstart(options) {
+          options.reload();
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron/preload',
+            rollupOptions: {
+              external: ['electron'],
+            },
+          },
+        },
+      },
     ]),
     renderer(),
   ],
@@ -40,6 +54,12 @@ export default defineConfig({
   publicDir: 'public',
   build: {
     outDir: 'dist-electron/renderer',
+    rollupOptions: {
+      input: {
+        index: path.resolve(__dirname, 'index.html'),
+        sensor: path.resolve(__dirname, 'src/renderer/sensor/index.html'),
+      },
+    },
   },
   resolve: {
     alias: {
