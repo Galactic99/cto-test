@@ -35,7 +35,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
       blink: { enabled: true, interval: 20 },
       posture: { enabled: true, interval: 30 },
       app: { startOnLogin: false },
-      detection: {},
+      detection: { enabled: false },
     });
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
@@ -62,7 +62,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
       blink: { enabled: true, interval: 20 },
       posture: { enabled: true, interval: 30 },
       app: { startOnLogin: false },
-      detection: {},
+      detection: { enabled: false },
     });
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
@@ -87,7 +87,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
       blink: { enabled: true, interval: 20 },
       posture: { enabled: true, interval: 30 },
       app: { startOnLogin: false },
-      detection: {},
+      detection: { enabled: false },
     });
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
@@ -118,19 +118,19 @@ describe('Simultaneous Blink and Posture Reminders', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       })
       .mockReturnValueOnce({
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       })
       .mockReturnValue({
         blink: { enabled: true, interval: 10 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
 
     mockSubscribeToSettings.mockImplementation((callback) => {
@@ -147,13 +147,13 @@ describe('Simultaneous Blink and Posture Reminders', () => {
           blink: { enabled: true, interval: 10 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         },
         {
           blink: { enabled: true, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         }
       );
     }
@@ -181,19 +181,19 @@ describe('Simultaneous Blink and Posture Reminders', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       })
       .mockReturnValueOnce({
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       })
       .mockReturnValue({
         blink: { enabled: false, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
 
     mockSubscribeToSettings.mockImplementation((callback) => {
@@ -210,13 +210,13 @@ describe('Simultaneous Blink and Posture Reminders', () => {
           blink: { enabled: false, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         },
         {
           blink: { enabled: true, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         }
       );
     }

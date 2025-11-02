@@ -14,7 +14,9 @@ const mockSettings: AppSettings = {
   app: {
     startOnLogin: false,
   },
-  detection: {},
+  detection: {
+    enabled: false,
+  },
 };
 
 const mockElectronAPI = {
@@ -36,6 +38,15 @@ const mockElectronAPI = {
   },
   autostart: {
     toggle: jest.fn().mockResolvedValue(undefined),
+  },
+  sensor: {
+    enableDetection: jest.fn().mockResolvedValue(undefined),
+    disableDetection: jest.fn().mockResolvedValue(undefined),
+    startCamera: jest.fn().mockResolvedValue(undefined),
+    stopCamera: jest.fn().mockResolvedValue(undefined),
+    onCameraError: jest.fn(),
+    onCameraStarted: jest.fn(),
+    onCameraStopped: jest.fn(),
   },
 };
 
