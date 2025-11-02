@@ -20,7 +20,7 @@ export default defineConfig({
         },
       },
       {
-        entry: 'src/preload/preload.ts',
+        entry: 'src/preload/index.ts',
         onstart(options) {
           options.reload();
         },

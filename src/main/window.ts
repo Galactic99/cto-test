@@ -13,7 +13,7 @@ export function createSettingsWindow(): BrowserWindow {
     height: 800,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
