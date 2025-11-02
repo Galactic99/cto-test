@@ -9,6 +9,11 @@ out/
 *.js
 *.js.map
 
+# Keep configuration files
+!jest.config.js
+!eslint.config.js
+!vite.config.js
+
 # Keep build resources but ignore build output
 !build/
 build/*

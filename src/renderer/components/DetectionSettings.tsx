@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DetectionSettings as DetectionSettingsType, FpsMode } from '../../types/settings';
 import { DetectionStatus } from '../../types/detection';
+import PrivacyNote from './PrivacyNote';
 
 interface DetectionSettingsProps {
   onSettingsChange?: (settings: DetectionSettingsType) => void;
@@ -20,14 +21,31 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
       posture: true,
     },
     fpsMode: 'medium',
+    privacyConsentGiven: false,
   });
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showPrivacyNote, setShowPrivacyNote] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
     loadDetectionStatus();
+
+    window.electronAPI.sensor.onCameraError((error) => {
+      console.error('[DetectionSettings] Camera error:', error);
+      setCameraError(error);
+    });
+
+    window.electronAPI.sensor.onCameraStarted(() => {
+      console.log('[DetectionSettings] Camera started');
+      setCameraError(null);
+    });
+
+    window.electronAPI.sensor.onCameraStopped(() => {
+      console.log('[DetectionSettings] Camera stopped');
+    });
   }, []);
 
   const loadSettings = async (): Promise<void> => {
@@ -37,14 +55,18 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
         enabled: false,
         features: { blink: true, posture: true },
         fpsMode: 'medium' as FpsMode,
+        privacyConsentGiven: false,
       };
       
-      // Ensure features and fpsMode are set
+      // Ensure features, fpsMode, and privacyConsentGiven are set
       if (!detection.features) {
         detection.features = { blink: true, posture: true };
       }
       if (!detection.fpsMode) {
         detection.fpsMode = 'medium';
+      }
+      if (detection.privacyConsentGiven === undefined) {
+        detection.privacyConsentGiven = false;
       }
       
       setDetectionSettings(detection);
@@ -103,21 +125,28 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
   const handleDetectionLifecycle = async (
     settings: DetectionSettingsType
   ): Promise<void> => {
-    const { enabled, features } = settings;
+    const { enabled, features, privacyConsentGiven } = settings;
     const hasAnyFeatureEnabled = features?.blink || features?.posture;
 
     try {
-      if (enabled && hasAnyFeatureEnabled) {
-        // Start detection if enabled and at least one feature is on
+      if (enabled && hasAnyFeatureEnabled && privacyConsentGiven) {
+        // Start detection only if enabled, features on, AND consent given
         if (!detectionStatus?.isRunning) {
           console.log('[DetectionSettings] Starting detection...');
-          await window.electronAPI.detection.start();
+          try {
+            await window.electronAPI.detection.start();
+            setCameraError(null);
+          } catch (error) {
+            console.error('[DetectionSettings] Failed to start detection:', error);
+            setCameraError('Failed to start camera. Please check permissions and try again.');
+          }
         }
       } else {
-        // Stop detection if disabled or no features enabled
+        // Stop detection if disabled, no features enabled, or no consent
         if (detectionStatus?.isRunning) {
           console.log('[DetectionSettings] Stopping detection...');
           await window.electronAPI.detection.stop();
+          setCameraError(null);
         }
       }
       
@@ -132,8 +161,8 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
     const enabled = e.target.checked;
     updateDetectionSettings({
       features: {
-        ...detectionSettings.features,
         blink: enabled,
+        posture: detectionSettings.features?.posture ?? true,
       },
     });
   };
@@ -142,7 +171,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
     const enabled = e.target.checked;
     updateDetectionSettings({
       features: {
-        ...detectionSettings.features,
+        blink: detectionSettings.features?.blink ?? true,
         posture: enabled,
       },
     });
@@ -155,7 +184,50 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
 
   const handleMasterToggle = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const enabled = e.target.checked;
-    updateDetectionSettings({ enabled });
+    
+    if (enabled && !detectionSettings.privacyConsentGiven) {
+      // Show privacy note if trying to enable without consent
+      setShowPrivacyNote(true);
+    } else {
+      updateDetectionSettings({ enabled });
+    }
+  };
+
+  const handlePrivacyConsent = async (consented: boolean): Promise<void> => {
+    setShowPrivacyNote(false);
+    
+    if (consented) {
+      // User gave consent, enable detection
+      await updateDetectionSettings({
+        enabled: true,
+        privacyConsentGiven: true,
+      });
+    }
+  };
+
+  const handlePrivacyNoteClose = (): void => {
+    setShowPrivacyNote(false);
+  };
+
+  const handleRevokeConsent = async (): Promise<void> => {
+    if (window.confirm('Are you sure you want to revoke camera consent? This will disable all detection features.')) {
+      await updateDetectionSettings({
+        enabled: false,
+        privacyConsentGiven: false,
+      });
+    }
+  };
+
+  const handleRetryCamera = async (): Promise<void> => {
+    setCameraError(null);
+    if (detectionSettings.enabled && detectionSettings.privacyConsentGiven) {
+      try {
+        await window.electronAPI.detection.start();
+      } catch (error) {
+        console.error('[DetectionSettings] Failed to retry camera:', error);
+        setCameraError('Failed to start camera. Please check permissions and try again.');
+      }
+    }
   };
 
   if (loading) {
@@ -171,35 +243,140 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
     detectionSettings.features?.blink || detectionSettings.features?.posture;
 
   return (
-    <div style={{ marginBottom: '30px' }}>
-      <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#555' }}>
-        Detection Settings
-      </h2>
+    <>
+      {showPrivacyNote && (
+        <PrivacyNote onConsent={handlePrivacyConsent} onClose={handlePrivacyNoteClose} />
+      )}
+      
+      <div style={{ marginBottom: '30px' }}>
+        <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#555' }}>
+          Detection Settings
+        </h2>
 
-      {/* Master detection toggle */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={detectionSettings.enabled}
-            onChange={handleMasterToggle}
-            disabled={updating}
+        {/* Master detection toggle */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={detectionSettings.enabled}
+              onChange={handleMasterToggle}
+              disabled={updating}
+              style={{
+                marginRight: '10px',
+                width: '18px',
+                height: '18px',
+                cursor: updating ? 'not-allowed' : 'pointer',
+              }}
+            />
+            <span style={{ fontWeight: 'bold' }}>Enable camera-based detection</span>
+          </label>
+          <p style={{ marginLeft: '28px', fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            Uses your camera to detect blinks and posture for smarter reminders
+          </p>
+        </div>
+
+        {/* Privacy consent status */}
+        {detectionSettings.privacyConsentGiven && (
+          <div
             style={{
-              marginRight: '10px',
-              width: '18px',
-              height: '18px',
-              cursor: updating ? 'not-allowed' : 'pointer',
+              marginBottom: '20px',
+              padding: '10px',
+              backgroundColor: '#e7f3ff',
+              border: '1px solid #b3d9ff',
+              borderRadius: '4px',
+              fontSize: '13px',
             }}
-          />
-          <span style={{ fontWeight: 'bold' }}>Enable camera-based detection</span>
-        </label>
-        <p style={{ marginLeft: '28px', fontSize: '12px', color: '#666', marginTop: '5px' }}>
-          Uses your camera to detect blinks and posture for smarter reminders
-        </p>
-      </div>
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#004085' }}>
+                ✓ Camera consent granted
+              </span>
+              <button
+                onClick={handleRevokeConsent}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: 'transparent',
+                  color: '#004085',
+                  border: '1px solid #004085',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                }}
+              >
+                Revoke Consent
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Camera error message */}
+        {cameraError && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px',
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              borderRadius: '4px',
+              color: '#721c24',
+              fontSize: '14px',
+            }}
+          >
+            <div style={{ marginBottom: '10px' }}>
+              <strong>⚠ Camera Error:</strong> {cameraError}
+            </div>
+            <button
+              onClick={handleRetryCamera}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#721c24',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Retry Camera Access
+            </button>
+          </div>
+        )}
+
+        {/* Consent required message */}
+        {detectionSettings.enabled && !detectionSettings.privacyConsentGiven && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffeeba',
+              borderRadius: '4px',
+              color: '#856404',
+              fontSize: '14px',
+            }}
+          >
+            <div style={{ marginBottom: '10px' }}>
+              <strong>⚠ Privacy consent required:</strong> You must grant camera consent to use detection features.
+            </div>
+            <button
+              onClick={() => setShowPrivacyNote(true)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#856404',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Review Privacy & Grant Consent
+            </button>
+          </div>
+        )}
 
       {/* Detection status indicator */}
-      {detectionSettings.enabled && (
+      {detectionSettings.enabled && detectionSettings.privacyConsentGiven && (
         <div
           style={{
             padding: '10px',
@@ -330,7 +507,8 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
           Updating settings...
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
