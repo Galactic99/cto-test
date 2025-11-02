@@ -7,6 +7,7 @@ import {
 import { createSystemTray, destroySystemTray } from './tray';
 import { registerIpcHandlers, cleanupIpcHandlers } from './ipc';
 import * as blinkReminder from './reminders/blink';
+import * as postureReminder from './reminders/posture';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -39,6 +40,9 @@ if (!gotTheLock) {
     // Start blink reminders if enabled
     blinkReminder.start();
 
+    // Start posture reminders if enabled
+    postureReminder.start();
+
     // Check if --hidden flag is present
     const shouldStartHidden = process.argv.includes('--hidden');
 
@@ -66,6 +70,7 @@ if (!gotTheLock) {
   app.on('before-quit', () => {
     // Clean up resources before quitting
     blinkReminder.stop();
+    postureReminder.stop();
     cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();
