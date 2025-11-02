@@ -1,21 +1,21 @@
 import { ipcMain } from 'electron';
-import { AppSettings, DEFAULT_SETTINGS } from '../types/settings';
-
-let currentSettings: AppSettings = { ...DEFAULT_SETTINGS };
+import { AppSettings } from '../types/settings';
+import { getSettings, setSettings } from './store/settings';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
-    console.log('[IPC] Settings get requested:', currentSettings);
-    return { ...currentSettings };
+    const settings = getSettings();
+    console.log('[IPC] Settings get requested:', settings);
+    return settings;
   });
 
   ipcMain.handle(
     'settings:set',
     async (_event, partialSettings: Partial<AppSettings>): Promise<AppSettings> => {
       console.log('[IPC] Settings update requested:', partialSettings);
-      currentSettings = { ...currentSettings, ...partialSettings };
-      console.log('[IPC] Settings updated to:', currentSettings);
-      return { ...currentSettings };
+      const updatedSettings = setSettings(partialSettings);
+      console.log('[IPC] Settings updated to:', updatedSettings);
+      return updatedSettings;
     }
   );
 

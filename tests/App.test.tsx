@@ -3,20 +3,32 @@ import App from '../src/renderer/App';
 import { AppSettings } from '../src/types/settings';
 
 const mockSettings: AppSettings = {
-  blinkReminderEnabled: true,
-  blinkInterval: 20,
-  postureReminderEnabled: true,
-  postureInterval: 30,
-  startOnLogin: false,
+  blink: {
+    enabled: true,
+    interval: 20,
+  },
+  posture: {
+    enabled: true,
+    interval: 30,
+  },
+  app: {
+    startOnLogin: false,
+  },
+  detection: {},
 };
 
 const mockElectronAPI = {
   platform: 'darwin',
   settings: {
     get: jest.fn().mockResolvedValue(mockSettings),
-    set: jest.fn().mockImplementation((partial) => 
-      Promise.resolve({ ...mockSettings, ...partial })
-    ),
+    set: jest.fn().mockImplementation((partial) => {
+      const updated = { ...mockSettings };
+      if (partial.blink) updated.blink = { ...updated.blink, ...partial.blink };
+      if (partial.posture) updated.posture = { ...updated.posture, ...partial.posture };
+      if (partial.app) updated.app = { ...updated.app, ...partial.app };
+      if (partial.detection) updated.detection = { ...updated.detection, ...partial.detection };
+      return Promise.resolve(updated);
+    }),
   },
   reminder: {
     testBlink: jest.fn().mockResolvedValue(undefined),

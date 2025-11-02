@@ -6,11 +6,10 @@ const MAX_INTERVAL = 240;
 
 function SettingsForm(): React.ReactElement {
   const [settings, setSettings] = useState<AppSettings>({
-    blinkReminderEnabled: true,
-    blinkInterval: 20,
-    postureReminderEnabled: true,
-    postureInterval: 30,
-    startOnLogin: false,
+    blink: { enabled: true, interval: 20 },
+    posture: { enabled: true, interval: 30 },
+    app: { startOnLogin: false },
+    detection: {},
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [testingBlink, setTestingBlink] = useState<boolean>(false);
@@ -41,30 +40,30 @@ function SettingsForm(): React.ReactElement {
   };
 
   const handleBlinkEnabledChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    updateSetting({ blinkReminderEnabled: e.target.checked });
+    updateSetting({ blink: { ...settings.blink, enabled: e.target.checked } });
   };
 
   const handleBlinkIntervalChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = parseInt(e.target.value, 10);
     if (!isNaN(value) && value >= MIN_INTERVAL && value <= MAX_INTERVAL) {
-      updateSetting({ blinkInterval: value });
+      updateSetting({ blink: { ...settings.blink, interval: value } });
     }
   };
 
   const handlePostureEnabledChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    updateSetting({ postureReminderEnabled: e.target.checked });
+    updateSetting({ posture: { ...settings.posture, enabled: e.target.checked } });
   };
 
   const handlePostureIntervalChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = parseInt(e.target.value, 10);
     if (!isNaN(value) && value >= MIN_INTERVAL && value <= MAX_INTERVAL) {
-      updateSetting({ postureInterval: value });
+      updateSetting({ posture: { ...settings.posture, interval: value } });
     }
   };
 
   const handleStartOnLoginChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const enabled = e.target.checked;
-    updateSetting({ startOnLogin: enabled });
+    updateSetting({ app: { ...settings.app, startOnLogin: enabled } });
     window.electronAPI.autostart.toggle(enabled);
   };
 
@@ -119,7 +118,7 @@ function SettingsForm(): React.ReactElement {
           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
-              checked={settings.blinkReminderEnabled}
+              checked={settings.blink.enabled}
               onChange={handleBlinkEnabledChange}
               style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
             />
@@ -134,16 +133,16 @@ function SettingsForm(): React.ReactElement {
             type="number"
             min={MIN_INTERVAL}
             max={MAX_INTERVAL}
-            value={settings.blinkInterval}
+            value={settings.blink.interval}
             onChange={handleBlinkIntervalChange}
-            disabled={!settings.blinkReminderEnabled}
+            disabled={!settings.blink.enabled}
             style={{
               padding: '8px',
               width: '100px',
               fontSize: '14px',
               border: '1px solid #ccc',
               borderRadius: '4px',
-              opacity: settings.blinkReminderEnabled ? 1 : 0.6,
+              opacity: settings.blink.enabled ? 1 : 0.6,
             }}
           />
           <span style={{ marginLeft: '10px', fontSize: '12px', color: '#666' }}>
@@ -176,7 +175,7 @@ function SettingsForm(): React.ReactElement {
           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
-              checked={settings.postureReminderEnabled}
+              checked={settings.posture.enabled}
               onChange={handlePostureEnabledChange}
               style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
             />
@@ -191,16 +190,16 @@ function SettingsForm(): React.ReactElement {
             type="number"
             min={MIN_INTERVAL}
             max={MAX_INTERVAL}
-            value={settings.postureInterval}
+            value={settings.posture.interval}
             onChange={handlePostureIntervalChange}
-            disabled={!settings.postureReminderEnabled}
+            disabled={!settings.posture.enabled}
             style={{
               padding: '8px',
               width: '100px',
               fontSize: '14px',
               border: '1px solid #ccc',
               borderRadius: '4px',
-              opacity: settings.postureReminderEnabled ? 1 : 0.6,
+              opacity: settings.posture.enabled ? 1 : 0.6,
             }}
           />
           <span style={{ marginLeft: '10px', fontSize: '12px', color: '#666' }}>
@@ -233,7 +232,7 @@ function SettingsForm(): React.ReactElement {
           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
-              checked={settings.startOnLogin}
+              checked={settings.app.startOnLogin}
               onChange={handleStartOnLoginChange}
               style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
             />
