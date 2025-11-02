@@ -46,5 +46,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   detection: {
     enabled: false,
+    features: {
+      blink: true,
+      posture: true,
+    },
+    fpsMode: 'medium',
   },
 };
