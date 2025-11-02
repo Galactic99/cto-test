@@ -113,19 +113,27 @@ export function subscribeToSettings(
   callback: (newSettings: AppSettings, oldSettings: AppSettings) => void
 ): () => void {
   const unsubscribe = store.onDidChange('blink', (newValue, oldValue) => {
-    callback(store.store, store.store);
+    const currentSettings = store.store;
+    const oldSettings = { ...currentSettings, blink: oldValue as BlinkSettings };
+    callback(currentSettings, oldSettings);
   });
 
   const unsubscribePosture = store.onDidChange('posture', (newValue, oldValue) => {
-    callback(store.store, store.store);
+    const currentSettings = store.store;
+    const oldSettings = { ...currentSettings, posture: oldValue as PostureSettings };
+    callback(currentSettings, oldSettings);
   });
 
   const unsubscribeApp = store.onDidChange('app', (newValue, oldValue) => {
-    callback(store.store, store.store);
+    const currentSettings = store.store;
+    const oldSettings = { ...currentSettings, app: oldValue as AppPreferences };
+    callback(currentSettings, oldSettings);
   });
 
   const unsubscribeDetection = store.onDidChange('detection', (newValue, oldValue) => {
-    callback(store.store, store.store);
+    const currentSettings = store.store;
+    const oldSettings = { ...currentSettings, detection: oldValue as DetectionSettings };
+    callback(currentSettings, oldSettings);
   });
 
   // Return combined unsubscribe function
