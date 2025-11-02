@@ -40,6 +40,19 @@ npm install
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Run tests with coverage
 - `npm run dist` - Build distributable packages
+- `npm run dist:win` - Build Windows installer specifically
+
+### Building for Distribution
+
+To create a Windows installer:
+
+```bash
+npm run dist:win
+```
+
+The installer will be created in the `release/` directory. For detailed Windows build configuration, see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md).
+
+**Note**: The Windows installer is configured for per-user installation and does not require administrator privileges.
 
 ## Tech Stack
 

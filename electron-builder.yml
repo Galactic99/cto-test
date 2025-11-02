@@ -1,0 +1,66 @@
+appId: com.wellness.reminder
+productName: Wellness Reminder
+copyright: Copyright © 2024
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist-electron/**/*
+  - package.json
+  - LICENSE
+  - "!**/*.{ts,tsx,map}"
+  - "!src"
+  - "!tests"
+  - "!*.config.ts"
+  - "!tsconfig*.json"
+  - "!.prettierrc.json"
+  - "!.prettierignore"
+  - "!.gitignore"
+  - "!.eslintrc*"
+  - "!README.md"
+  - "!PROJECT_SETUP.md"
+  - "!.git"
+  - "!node_modules"
+  - "!index.html"
+
+asarUnpack:
+  - "**/node_modules/electron-store/**/*"
+
+win:
+  icon: build/icons/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ${productName}
+  installerIcon: build/icons/icon.ico
+  uninstallerIcon: build/icons/icon.ico
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+
+mac:
+  category: public.app-category.healthcare-fitness
+  icon: build/icons/icon.icns
+  target:
+    - dmg
+  artifactName: ${productName}-${version}.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Utility
+  icon: build/icons/icon.png
+  artifactName: ${productName}-${version}.${ext}
+
+publish: null

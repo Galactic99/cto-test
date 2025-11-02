@@ -14,7 +14,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "repository": {
     "type": "git",
@@ -62,26 +63,5 @@
     "electron-store": "^11.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
-  },
-  "build": {
-    "appId": "com.wellness.reminder",
-    "productName": "Wellness Reminder",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist-electron/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.healthcare-fitness",
-      "target": ["dmg"]
-    },
-    "win": {
-      "target": ["nsis"]
-    },
-    "linux": {
-      "target": ["AppImage"],
-      "category": "Utility"
-    }
   }
 }
