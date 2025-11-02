@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { AppSettings } from '../types/settings';
 import { getSettings, setSettings } from './store/settings';
+import * as blinkReminder from './reminders/blink';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
@@ -21,6 +22,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('reminder:test-blink', async (): Promise<void> => {
     console.log('[IPC] Test blink notification requested');
+    blinkReminder.test();
   });
 
   ipcMain.handle('reminder:test-posture', async (): Promise<void> => {

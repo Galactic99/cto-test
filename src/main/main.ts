@@ -6,6 +6,12 @@ import {
 } from './window';
 import { createSystemTray, destroySystemTray } from './tray';
 import { registerIpcHandlers, cleanupIpcHandlers } from './ipc';
+import * as blinkReminder from './reminders/blink';
+
+// Set app user model ID for Windows notifications
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.wellness.reminder');
+}
 
 // Request single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -29,6 +35,9 @@ if (!gotTheLock) {
 
     // Create system tray
     createSystemTray();
+
+    // Start blink reminders if enabled
+    blinkReminder.start();
 
     // Check if --hidden flag is present
     const shouldStartHidden = process.argv.includes('--hidden');
@@ -56,6 +65,7 @@ if (!gotTheLock) {
 
   app.on('before-quit', () => {
     // Clean up resources before quitting
+    blinkReminder.stop();
     cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();
