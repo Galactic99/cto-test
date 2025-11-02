@@ -8,6 +8,7 @@ import { createSystemTray, destroySystemTray } from './tray';
 import { registerIpcHandlers, cleanupIpcHandlers } from './ipc';
 import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
+import * as autostart from './system/autostart';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -30,6 +31,9 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     // Register IPC handlers
     registerIpcHandlers();
+
+    // Initialize autostart module
+    autostart.initialize();
 
     // Create the settings window (hidden by default)
     createSettingsWindow();
@@ -71,6 +75,7 @@ if (!gotTheLock) {
     // Clean up resources before quitting
     blinkReminder.stop();
     postureReminder.stop();
+    autostart.cleanup();
     cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();
