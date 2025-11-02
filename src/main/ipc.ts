@@ -1,11 +1,13 @@
 import { ipcMain } from 'electron';
-import { AppSettings } from '../types/settings';
+import { AppSettings, DetectionSettings } from '../types/settings';
+import { DetectionMetrics, DetectionStatus } from '../types/detection';
 import { getSettings, setSettings } from './store/settings';
 import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
 import * as autostart from './system/autostart';
 import * as sensorWindow from './sensorWindow';
 import { getSettingsWindow } from './window';
+import * as detectionState from './detectionState';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
@@ -92,6 +94,64 @@ export function registerIpcHandlers(): void {
       settingsWindow.webContents.send('sensor:camera-stopped');
     }
   });
+
+  // Detection lifecycle handlers
+  ipcMain.handle('detection:start', async (): Promise<void> => {
+    console.log('[IPC] Detection start requested');
+    try {
+      await detectionState.startDetection();
+    } catch (error) {
+      console.error('[IPC] Failed to start detection:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('detection:stop', async (): Promise<void> => {
+    console.log('[IPC] Detection stop requested');
+    try {
+      await detectionState.stopDetection();
+    } catch (error) {
+      console.error('[IPC] Failed to stop detection:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('detection:status', async (): Promise<DetectionStatus> => {
+    console.log('[IPC] Detection status requested');
+    return detectionState.getStatus();
+  });
+
+  ipcMain.handle('detection:metrics:get', async (): Promise<DetectionMetrics> => {
+    console.log('[IPC] Detection metrics requested');
+    return detectionState.getMetrics();
+  });
+
+  ipcMain.handle(
+    'detection:settings:set',
+    async (_event, settings: Partial<DetectionSettings>): Promise<DetectionStatus> => {
+      console.log('[IPC] Detection settings update requested:', settings);
+      return detectionState.updateSettings(settings);
+    }
+  );
+
+  ipcMain.handle('detection:calibrate:posture', async (): Promise<void> => {
+    console.log('[IPC] Posture calibration requested (stub)');
+    // Stub implementation - to be implemented later
+    // This will eventually trigger a calibration sequence in the sensor window
+    return Promise.resolve();
+  });
+
+  // Handler for metrics updates from sensor window
+  ipcMain.on('sensor:metrics-update', (_event, metrics: DetectionMetrics) => {
+    console.log('[IPC] Metrics update from sensor window:', metrics);
+    detectionState.updateMetrics(metrics);
+    
+    // Forward metrics to settings window if open
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('detection:metrics-updated', metrics);
+    }
+  });
 }
 
 export function cleanupIpcHandlers(): void {
@@ -104,7 +164,14 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('sensor:disable-detection');
   ipcMain.removeHandler('sensor:start-camera');
   ipcMain.removeHandler('sensor:stop-camera');
+  ipcMain.removeHandler('detection:start');
+  ipcMain.removeHandler('detection:stop');
+  ipcMain.removeHandler('detection:status');
+  ipcMain.removeHandler('detection:metrics:get');
+  ipcMain.removeHandler('detection:settings:set');
+  ipcMain.removeHandler('detection:calibrate:posture');
   ipcMain.removeAllListeners('sensor:camera-error');
   ipcMain.removeAllListeners('sensor:camera-started');
   ipcMain.removeAllListeners('sensor:camera-stopped');
+  ipcMain.removeAllListeners('sensor:metrics-update');
 }

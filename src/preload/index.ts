@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { AppSettings } from '../types/settings';
+import { AppSettings, DetectionSettings } from '../types/settings';
+import { DetectionMetrics, DetectionStatus } from '../types/detection';
 
 export interface ElectronAPI {
   platform: string;
@@ -22,6 +23,15 @@ export interface ElectronAPI {
     onCameraError: (callback: (error: string) => void) => void;
     onCameraStarted: (callback: () => void) => void;
     onCameraStopped: (callback: () => void) => void;
+  };
+  detection: {
+    start: () => Promise<void>;
+    stop: () => Promise<void>;
+    getStatus: () => Promise<DetectionStatus>;
+    getMetrics: () => Promise<DetectionMetrics>;
+    setSettings: (settings: Partial<DetectionSettings>) => Promise<DetectionStatus>;
+    calibratePosture: () => Promise<void>;
+    onMetricsUpdated: (callback: (metrics: DetectionMetrics) => void) => void;
   };
 }
 
@@ -52,6 +62,20 @@ const electronAPI: ElectronAPI = {
     },
     onCameraStopped: (callback: () => void) => {
       ipcRenderer.on('sensor:camera-stopped', () => callback());
+    },
+  },
+  detection: {
+    start: () => ipcRenderer.invoke('detection:start'),
+    stop: () => ipcRenderer.invoke('detection:stop'),
+    getStatus: () => ipcRenderer.invoke('detection:status'),
+    getMetrics: () => ipcRenderer.invoke('detection:metrics:get'),
+    setSettings: (settings: Partial<DetectionSettings>) =>
+      ipcRenderer.invoke('detection:settings:set', settings),
+    calibratePosture: () => ipcRenderer.invoke('detection:calibrate:posture'),
+    onMetricsUpdated: (callback: (metrics: DetectionMetrics) => void) => {
+      ipcRenderer.on('detection:metrics-updated', (_event, metrics: DetectionMetrics) =>
+        callback(metrics)
+      );
     },
   },
 };

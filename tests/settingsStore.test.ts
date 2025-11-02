@@ -109,9 +109,9 @@ describe('Settings Store', () => {
       expect(settings.app.startOnLogin).toBe(false);
     });
 
-    it('should have empty detection settings object', () => {
+    it('should have correct default values for detection settings', () => {
       const settings = getSettings();
-      expect(settings.detection).toEqual({});
+      expect(settings.detection.enabled).toBe(false);
     });
   });
 

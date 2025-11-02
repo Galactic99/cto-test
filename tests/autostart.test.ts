@@ -104,7 +104,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: true },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: true,
@@ -129,7 +129,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: true },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: false,
@@ -157,7 +157,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: true,
@@ -185,7 +185,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: false,
@@ -211,13 +211,13 @@ describe('Autostart Module', () => {
           blink: { enabled: true, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: true },
-          detection: {},
+          detection: { enabled: false },
         },
         {
           blink: { enabled: true, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         }
       );
 
@@ -234,7 +234,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: false,
@@ -261,13 +261,13 @@ describe('Autostart Module', () => {
           blink: { enabled: true, interval: 25 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         },
         {
           blink: { enabled: true, interval: 20 },
           posture: { enabled: true, interval: 30 },
           app: { startOnLogin: false },
-          detection: {},
+          detection: { enabled: false },
         }
       );
 
@@ -283,7 +283,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: false,
@@ -312,7 +312,7 @@ describe('Autostart Module', () => {
         blink: { enabled: true, interval: 20 },
         posture: { enabled: true, interval: 30 },
         app: { startOnLogin: false },
-        detection: {},
+        detection: { enabled: false },
       });
       mockGetLoginItemSettings.mockReturnValue({
         openAtLogin: false,

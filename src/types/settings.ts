@@ -12,8 +12,17 @@ export interface AppPreferences {
   startOnLogin: boolean;
 }
 
+export type FpsMode = 'low' | 'medium' | 'high';
+
+export interface DetectionFeatures {
+  blink: boolean;
+  posture: boolean;
+}
+
 export interface DetectionSettings {
   enabled: boolean;
+  features?: DetectionFeatures;
+  fpsMode?: FpsMode;
 }
 
 export interface AppSettings {

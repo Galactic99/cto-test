@@ -88,3 +88,11 @@ export function disableDetection(): Promise<void> {
     destroySensorWindow();
   });
 }
+
+export function sendToSensor(channel: string, ...args: any[]): void {
+  if (sensorWindow && !sensorWindow.isDestroyed()) {
+    sensorWindow.webContents.send(channel, ...args);
+  } else {
+    console.warn(`[SensorWindow] Cannot send to sensor: window not available (channel: ${channel})`);
+  }
+}
