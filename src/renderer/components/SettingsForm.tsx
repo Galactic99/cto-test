@@ -9,14 +9,33 @@ function SettingsForm(): React.ReactElement {
     blink: { enabled: true, interval: 20 },
     posture: { enabled: true, interval: 30 },
     app: { startOnLogin: false },
-    detection: {},
+    detection: { enabled: false },
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [testingBlink, setTestingBlink] = useState<boolean>(false);
   const [testingPosture, setTestingPosture] = useState<boolean>(false);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
+
+    window.electronAPI.sensor.onCameraError((error: string) => {
+      console.error('[Sensor] Camera error received:', error);
+      setCameraError(error);
+      setCameraActive(false);
+    });
+
+    window.electronAPI.sensor.onCameraStarted(() => {
+      console.log('[Sensor] Camera started');
+      setCameraActive(true);
+      setCameraError(null);
+    });
+
+    window.electronAPI.sensor.onCameraStopped(() => {
+      console.log('[Sensor] Camera stopped');
+      setCameraActive(false);
+    });
   }, []);
 
   const loadSettings = async (): Promise<void> => {
@@ -88,6 +107,25 @@ function SettingsForm(): React.ReactElement {
       console.error('Failed to test posture notification:', error);
     } finally {
       setTestingPosture(false);
+    }
+  };
+
+  const handleDetectionEnabledChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const enabled = e.target.checked;
+    try {
+      if (enabled) {
+        await window.electronAPI.sensor.enableDetection();
+        await window.electronAPI.sensor.startCamera();
+      } else {
+        await window.electronAPI.sensor.stopCamera();
+        await window.electronAPI.sensor.disableDetection();
+      }
+      updateSetting({ detection: { enabled } });
+    } catch (error) {
+      console.error('Failed to toggle detection:', error);
+      setCameraError('Failed to toggle detection');
     }
   };
 
@@ -222,6 +260,51 @@ function SettingsForm(): React.ReactElement {
         >
           {testingPosture ? 'Testing...' : 'Test Posture Notification'}
         </button>
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#555' }}>
+          Camera Detection (Dev)
+        </h2>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={settings.detection.enabled}
+              onChange={handleDetectionEnabledChange}
+              style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <span>Enable camera detection</span>
+          </label>
+        </div>
+        {cameraActive && (
+          <div
+            style={{
+              padding: '10px',
+              backgroundColor: '#d4edda',
+              border: '1px solid #c3e6cb',
+              borderRadius: '4px',
+              color: '#155724',
+              marginTop: '10px',
+            }}
+          >
+            ✓ Camera is active
+          </div>
+        )}
+        {cameraError && (
+          <div
+            style={{
+              padding: '10px',
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              borderRadius: '4px',
+              color: '#721c24',
+              marginTop: '10px',
+            }}
+          >
+            Error: {cameraError}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: '30px' }}>

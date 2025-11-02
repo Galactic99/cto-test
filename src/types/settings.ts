@@ -13,7 +13,7 @@ export interface AppPreferences {
 }
 
 export interface DetectionSettings {
-  // Placeholder for future detection settings (e.g., FPS mode, etc.)
+  enabled: boolean;
 }
 
 export interface AppSettings {
@@ -35,5 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   app: {
     startOnLogin: false,
   },
-  detection: {},
+  detection: {
+    enabled: false,
+  },
 };

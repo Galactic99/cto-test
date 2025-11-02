@@ -14,6 +14,15 @@ export interface ElectronAPI {
   autostart: {
     toggle: (enabled: boolean) => Promise<void>;
   };
+  sensor: {
+    enableDetection: () => Promise<void>;
+    disableDetection: () => Promise<void>;
+    startCamera: () => Promise<void>;
+    stopCamera: () => Promise<void>;
+    onCameraError: (callback: (error: string) => void) => void;
+    onCameraStarted: (callback: () => void) => void;
+    onCameraStopped: (callback: () => void) => void;
+  };
 }
 
 const electronAPI: ElectronAPI = {
@@ -29,6 +38,21 @@ const electronAPI: ElectronAPI = {
   },
   autostart: {
     toggle: (enabled: boolean) => ipcRenderer.invoke('autostart:toggle', enabled),
+  },
+  sensor: {
+    enableDetection: () => ipcRenderer.invoke('sensor:enable-detection'),
+    disableDetection: () => ipcRenderer.invoke('sensor:disable-detection'),
+    startCamera: () => ipcRenderer.invoke('sensor:start-camera'),
+    stopCamera: () => ipcRenderer.invoke('sensor:stop-camera'),
+    onCameraError: (callback: (error: string) => void) => {
+      ipcRenderer.on('sensor:camera-error', (_event, error: string) => callback(error));
+    },
+    onCameraStarted: (callback: () => void) => {
+      ipcRenderer.on('sensor:camera-started', () => callback());
+    },
+    onCameraStopped: (callback: () => void) => {
+      ipcRenderer.on('sensor:camera-stopped', () => callback());
+    },
   },
 };
 
