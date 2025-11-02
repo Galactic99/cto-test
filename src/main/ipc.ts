@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { AppSettings } from '../types/settings';
 import { getSettings, setSettings } from './store/settings';
 import * as blinkReminder from './reminders/blink';
+import * as postureReminder from './reminders/posture';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
@@ -27,6 +28,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('reminder:test-posture', async (): Promise<void> => {
     console.log('[IPC] Test posture notification requested');
+    postureReminder.test();
   });
 
   ipcMain.handle('autostart:toggle', async (_event, enabled: boolean): Promise<void> => {
