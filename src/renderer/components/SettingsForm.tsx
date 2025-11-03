@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '../../types/settings';
 import DetectionSettings from './DetectionSettings';
+import DetectionPreview from './DetectionPreview';
 import Calibration from './Calibration';
 
 const MIN_INTERVAL = 1;
@@ -243,6 +244,8 @@ function SettingsForm(): React.ReactElement {
           checkDetectionStatus();
         }}
       />
+
+      <DetectionPreview isDetectionRunning={isDetectionRunning} />
 
       <Calibration
         detectionSettings={settings.detection}
