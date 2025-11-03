@@ -141,6 +141,18 @@ export function registerIpcHandlers(): void {
       await detectionState.startDetection();
       blinkPolicy.reset();
       posturePolicy.reset();
+      
+      // Sync posture policy threshold with user settings
+      const settings = getSettings();
+      if (settings.detection.postureScoreThreshold !== undefined) {
+        posturePolicy.updateConfig({
+          scoreThreshold: settings.detection.postureScoreThreshold,
+        });
+        console.log(
+          `[IPC] 📊 Posture policy threshold synced from settings: ${settings.detection.postureScoreThreshold}`
+        );
+      }
+      
       console.log('[IPC] ✅ Blink and posture policies reset for new detection session');
       console.log('[IPC] 📋 Current policy configurations:', {
         blinkPolicy: blinkPolicy.getConfig(),
@@ -215,6 +227,7 @@ export function registerIpcHandlers(): void {
           features: detectionState.getStatus().features,
           fpsMode: detectionState.getStatus().fpsMode,
           postureBaselinePitch: updatedSettings.detection.postureBaselinePitch,
+          postureScoreThreshold: updatedSettings.detection.postureScoreThreshold,
         });
         console.log('[IPC] Baseline applied to detection');
         

@@ -50,7 +50,7 @@ export function createSensorWindow(): BrowserWindow {
     console.log('[SensorWindow] ✅ Sensor window content loaded');
   });
 
-  sensorWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  sensorWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[SensorWindow] ❌ Failed to load sensor window: ${errorDescription} (code: ${errorCode})`);
     console.error(`[SensorWindow] Attempted URL: ${validatedURL}`);
   });

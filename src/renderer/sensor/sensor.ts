@@ -32,6 +32,7 @@ declare global {
           features: DetectionFeatures;
           fpsMode: FpsMode;
           postureBaselinePitch?: number;
+          postureScoreThreshold?: number;
         }) => void
       ) => void;
       sendMetricsUpdate: (metrics: DetectionMetrics) => void;
@@ -48,6 +49,7 @@ interface DetectionConfig {
   features: DetectionFeatures;
   fpsMode: FpsMode;
   postureBaselinePitch?: number;
+  postureScoreThreshold?: number;
 }
 
 let mediaStream: MediaStream | null = null;
@@ -71,6 +73,82 @@ let calibrationStartTime = 0;
 let retryManager: RetryManager | null = null;
 let detectionErrorCount = 0;
 const MAX_CONSECUTIVE_ERRORS = 10;
+
+function updateDebugUI(metrics: PostureMetrics, detector: PostureDetector): void {
+  const debugOverlay = document.getElementById('debug-overlay');
+  if (!debugOverlay) return;
+
+  // Show debug overlay when sensor window is visible
+  const isVisible = process.env.SENSOR_WINDOW_VISIBLE === 'true';
+  if (isVisible) {
+    debugOverlay.classList.add('visible');
+  }
+
+  const scoreFill = document.getElementById('score-fill');
+  const scoreValue = document.getElementById('score-value');
+  const statusBadge = document.getElementById('status-badge');
+  const headPitch = document.getElementById('head-pitch');
+  const shoulderRoll = document.getElementById('shoulder-roll');
+  const baselineInfo = document.getElementById('baseline-info');
+  const thresholdValue = document.getElementById('threshold-value');
+  const thresholdLine = document.getElementById('threshold-line');
+
+  if (!scoreFill || !scoreValue || !statusBadge) return;
+
+  const score = Math.round(metrics.postureScore);
+  const config = detector.getConfig();
+  const baseline = detector.getBaseline();
+  const threshold = config.scoreThreshold;
+
+  // Update score
+  scoreValue.textContent = score.toString();
+  scoreFill.style.width = `${score}%`;
+
+  // Update score color and status
+  scoreFill.className = 'score-fill';
+  statusBadge.className = 'status-badge';
+
+  if (score >= threshold + 15) {
+    scoreFill.classList.add('good');
+    statusBadge.classList.add('good');
+    statusBadge.textContent = 'GOOD';
+  } else if (score >= threshold) {
+    scoreFill.classList.add('warning');
+    statusBadge.classList.add('warning');
+    statusBadge.textContent = 'OK';
+  } else {
+    scoreFill.classList.add('poor');
+    statusBadge.classList.add('poor');
+    statusBadge.textContent = 'POOR';
+  }
+
+  // Update threshold line position
+  if (thresholdLine) {
+    thresholdLine.style.left = `${threshold}%`;
+  }
+
+  // Update angles
+  if (headPitch) {
+    headPitch.textContent = `${metrics.headPitchAngle.toFixed(1)}°`;
+  }
+  if (shoulderRoll) {
+    shoulderRoll.textContent = metrics.shoulderRollAngle.toFixed(2);
+  }
+
+  // Update baseline info
+  if (baselineInfo) {
+    if (baseline.hasBaseline) {
+      baselineInfo.textContent = `Head: ${baseline.headPitch.toFixed(1)}°, Shoulder: ${baseline.shoulderRoll.toFixed(2)}`;
+    } else {
+      baselineInfo.textContent = 'Not calibrated';
+    }
+  }
+
+  // Update threshold
+  if (thresholdValue) {
+    thresholdValue.textContent = threshold.toString();
+  }
+}
 
 function createDetectionError(
   type: DetectionErrorType,
@@ -239,6 +317,9 @@ function runDetectionLoop(): void {
               headPitchAngle: postureMetrics.headPitchAngle,
               shoulderRollAngle: postureMetrics.shoulderRollAngle,
             };
+
+            // Update debug UI
+            updateDebugUI(postureMetrics, postureDetector);
           }
 
           if (Object.keys(metricsUpdate).length > 0) {
@@ -386,8 +467,19 @@ async function initializeModel(): Promise<void> {
       }
 
       if (!postureDetector) {
-        postureDetector = createPostureDetector();
-        console.log('[Sensor] Posture detector initialized');
+        const config: Partial<import('./metrics/posture').PostureConfig> = {};
+        if (detectionConfig.postureScoreThreshold !== undefined) {
+          config.scoreThreshold = detectionConfig.postureScoreThreshold;
+        }
+        postureDetector = createPostureDetector(config);
+        console.log('[Sensor] Posture detector initialized', config);
+      } else if (detectionConfig.postureScoreThreshold !== undefined) {
+        postureDetector.updateConfig({
+          scoreThreshold: detectionConfig.postureScoreThreshold,
+        });
+        console.log(
+          `[Sensor] Updated posture detector threshold: ${detectionConfig.postureScoreThreshold}`
+        );
       }
 
       if (detectionConfig.postureBaselinePitch !== undefined) {
@@ -566,6 +658,7 @@ window.sensorAPI.onDetectionConfigure((config) => {
     features: config.features,
     fpsMode: config.fpsMode,
     postureBaselinePitch: config.postureBaselinePitch,
+    postureScoreThreshold: config.postureScoreThreshold,
     timestamp: new Date().toISOString(),
   });
   detectionConfig = config;
@@ -588,6 +681,15 @@ window.sensorAPI.onDetectionConfigure((config) => {
   if (postureDetector && config.features.posture) {
     console.log('[Sensor] 🔄 Resetting posture detector for new configuration');
     postureDetector.reset();
+
+    if (config.postureScoreThreshold !== undefined) {
+      postureDetector.updateConfig({
+        scoreThreshold: config.postureScoreThreshold,
+      });
+      console.log(
+        `[Sensor] ✅ Applied threshold to posture detector: ${config.postureScoreThreshold}`
+      );
+    }
     
     if (config.postureBaselinePitch !== undefined) {
       postureDetector.setBaseline(config.postureBaselinePitch);

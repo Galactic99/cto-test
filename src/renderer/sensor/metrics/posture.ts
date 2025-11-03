@@ -15,7 +15,7 @@ export interface PostureMetrics {
 }
 
 const DEFAULT_POSTURE_CONFIG: PostureConfig = {
-  scoreThreshold: 60,
+  scoreThreshold: 45,
   emaAlpha: 0.2,
 };
 
@@ -119,11 +119,11 @@ export class PostureDetector {
       ? shoulderRoll - this.baselineShoulderRoll
       : shoulderRoll;
 
-    // Define thresholds for poor posture
-    // Head pitch: > 15 degrees forward is poor
-    // Shoulder roll: > 5 units forward is poor
-    const headPitchPenalty = Math.max(0, Math.abs(adjustedHeadPitch) / 15) * 50;
-    const shoulderRollPenalty = Math.max(0, Math.abs(adjustedShoulderRoll) / 5) * 50;
+    // Only penalize forward tilt (positive angles), not backward
+    // Head pitch: > 20 degrees forward starts penalty, > 40 degrees is maximum penalty
+    // Shoulder roll: > 8 units forward starts penalty, > 16 units is maximum penalty
+    const headPitchPenalty = Math.max(0, adjustedHeadPitch / 40) * 60;
+    const shoulderRollPenalty = Math.max(0, adjustedShoulderRoll / 16) * 40;
 
     // Calculate score (100 - penalties)
     const rawScore = 100 - headPitchPenalty - shoulderRollPenalty;
@@ -176,6 +176,31 @@ export class PostureDetector {
     this.postureScore = this.applyEMA(rawScore, this.postureScore);
 
     this.lastUpdateTimestamp = timestamp;
+
+    // Log detailed debug info every 3 seconds
+    if (timestamp % 3000 < 100) {
+      const adjustedHeadPitch = this.hasBaseline
+        ? this.headPitchAngle - this.baselineHeadPitch
+        : this.headPitchAngle;
+      const adjustedShoulderRoll = this.hasBaseline
+        ? this.shoulderRollAngle - this.baselineShoulderRoll
+        : this.shoulderRollAngle;
+
+      console.log('[PostureDetector] Debug Info:', {
+        rawHeadPitch: this.rawHeadPitch.toFixed(2) + '°',
+        rawShoulderRoll: this.rawShoulderRoll.toFixed(2),
+        smoothedHeadPitch: this.headPitchAngle.toFixed(2) + '°',
+        smoothedShoulderRoll: this.shoulderRollAngle.toFixed(2),
+        hasBaseline: this.hasBaseline,
+        baselineHeadPitch: this.baselineHeadPitch.toFixed(2) + '°',
+        baselineShoulderRoll: this.baselineShoulderRoll.toFixed(2),
+        adjustedHeadPitch: adjustedHeadPitch.toFixed(2) + '°',
+        adjustedShoulderRoll: adjustedShoulderRoll.toFixed(2),
+        finalScore: this.postureScore.toFixed(1),
+        threshold: this.config.scoreThreshold,
+        isGoodPosture: this.postureScore >= this.config.scoreThreshold,
+      });
+    }
   }
 
   public getMetrics(): PostureMetrics {
@@ -227,12 +252,24 @@ export class PostureDetector {
     }
 
     this.hasBaseline = true;
+    console.log(
+      `[PostureDetector] Baseline set: headPitch=${this.baselineHeadPitch.toFixed(2)}°, shoulderRoll=${this.baselineShoulderRoll.toFixed(2)}`
+    );
   }
 
   public clearBaseline(): void {
     this.baselineHeadPitch = 0;
     this.baselineShoulderRoll = 0;
     this.hasBaseline = false;
+    console.log('[PostureDetector] Baseline cleared');
+  }
+
+  public getBaseline(): { headPitch: number; shoulderRoll: number; hasBaseline: boolean } {
+    return {
+      headPitch: this.baselineHeadPitch,
+      shoulderRoll: this.baselineShoulderRoll,
+      hasBaseline: this.hasBaseline,
+    };
   }
 }
 

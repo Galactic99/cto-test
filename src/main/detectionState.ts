@@ -99,6 +99,7 @@ export async function startDetection(): Promise<void> {
       features: state.features,
       fpsMode: state.fpsMode,
       postureBaselinePitch: settings.detection.postureBaselinePitch,
+      postureScoreThreshold: settings.detection.postureScoreThreshold,
     });
     
     // Start the camera
@@ -155,6 +156,7 @@ export function updateSettings(settings: Partial<DetectionSettings>): DetectionS
       features: state.features,
       fpsMode: state.fpsMode,
       postureBaselinePitch: currentSettings.detection.postureBaselinePitch,
+      postureScoreThreshold: currentSettings.detection.postureScoreThreshold,
     });
   }
   

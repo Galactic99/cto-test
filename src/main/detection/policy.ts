@@ -36,7 +36,7 @@ interface PosturePolicyState {
 }
 
 const DEFAULT_POSTURE_CONFIG: PosturePolicyConfig = {
-  scoreThreshold: 60,
+  scoreThreshold: 45,
   cooldownMs: 15 * 60 * 1000, // 15 minutes
   minRequiredDurationMs: 30 * 1000, // 30 seconds
   maxRequiredDurationMs: 60 * 1000, // 60 seconds
