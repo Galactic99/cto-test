@@ -5,6 +5,7 @@ import {
   FaceLandmarkerInstance,
 } from './models/faceLandmarker';
 import { DetectionFeatures, FpsMode } from '../../types/settings';
+import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blink';
 
 declare global {
   interface Window {
@@ -18,6 +19,7 @@ declare global {
         callback: (config: { features: DetectionFeatures; fpsMode: FpsMode }) => void
       ) => void;
     };
+    getBlinkMetrics?: () => BlinkMetrics | null;
   }
 }
 
@@ -29,6 +31,7 @@ interface DetectionConfig {
 let mediaStream: MediaStream | null = null;
 let videoElement: HTMLVideoElement | null = null;
 let faceLandmarker: FaceLandmarkerInstance | null = null;
+let blinkDetector: BlinkDetector | null = null;
 let detectionConfig: DetectionConfig | null = null;
 let detectionLoopId: number | null = null;
 let frameCount = 0;
@@ -77,6 +80,10 @@ function runDetectionLoop(): void {
             }
           }
 
+          if (detectionConfig?.features.blink && blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+            blinkDetector.processFrame(result, now);
+          }
+
           if (now - lastFpsLogTime >= 5000) {
             const fps = (frameCount / 5).toFixed(2);
             const targetFps = 1000 / fpsInterval;
@@ -85,6 +92,13 @@ function runDetectionLoop(): void {
             console.log(
               `[Sensor] Performance: ${fps} FPS (target: ${targetFps}), ~${cpuUsage}% estimated CPU usage`
             );
+
+            if (detectionConfig?.features.blink && blinkDetector) {
+              const metrics = blinkDetector.getMetrics(now);
+              console.log(
+                `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, BPM=${metrics.blinksPerMinute}, EAR=${metrics.averageEAR.toFixed(3)}`
+              );
+            }
 
             frameCount = 0;
             lastFpsLogTime = now;
@@ -140,12 +154,23 @@ async function initializeModel(): Promise<void> {
     faceLandmarker = await initializeFaceLandmarker();
     console.log('[Sensor] Reusing existing model instance');
   }
+
+  if (!blinkDetector) {
+    blinkDetector = createBlinkDetector();
+    console.log('[Sensor] Blink detector initialized');
+  }
 }
 
 function cleanupModel(): void {
   if (faceLandmarker) {
     faceLandmarker.close();
     faceLandmarker = null;
+  }
+
+  if (blinkDetector) {
+    blinkDetector.reset();
+    blinkDetector = null;
+    console.log('[Sensor] Blink detector cleaned up');
   }
 
   closeFaceLandmarker();
@@ -246,6 +271,11 @@ window.sensorAPI.onDetectionConfigure((config) => {
   console.log('[Sensor] Received detection configuration:', config);
   detectionConfig = config;
 
+  if (blinkDetector && config.features.blink) {
+    console.log('[Sensor] Resetting blink detector for new configuration');
+    blinkDetector.reset();
+  }
+
   if (faceLandmarker && videoElement && mediaStream) {
     stopDetectionLoop();
     console.log('[Sensor] Restarting detection loop with new config');
@@ -258,5 +288,12 @@ window.addEventListener('beforeunload', () => {
   stopDetectionLoop();
   stopCamera();
 });
+
+window.getBlinkMetrics = () => {
+  if (!blinkDetector) {
+    return null;
+  }
+  return blinkDetector.getMetrics();
+};
 
 console.log('[Sensor] Sensor window initialized');
