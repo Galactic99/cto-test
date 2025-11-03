@@ -10,6 +10,7 @@ files:
   - dist-electron/**/*
   - package.json
   - LICENSE
+  - docs/**/*
   - "!**/*.{ts,tsx,map}"
   - "!src"
   - "!tests"

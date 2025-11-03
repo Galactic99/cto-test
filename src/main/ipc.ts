@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { AppSettings, DetectionSettings } from '../types/settings';
 import { DetectionMetrics, DetectionStatus, DetectionError } from '../types/detection';
 import { getSettings, setSettings } from './store/settings';
@@ -11,6 +11,8 @@ import * as detectionState from './detectionState';
 import { createBlinkPolicy, createPosturePolicy } from './detection/policy';
 import { pauseManager, PauseState } from './pauseManager';
 import * as idleDetection from './system/idleDetection';
+import * as path from 'path';
+import { app } from 'electron';
 
 let blinkPolicy = createBlinkPolicy();
 let posturePolicy = createPosturePolicy();
@@ -255,6 +257,17 @@ export function registerIpcHandlers(): void {
     detectionState.clearDetectionError();
     sensorWindow.sendToSensor('sensor:retry-detection');
   });
+
+  ipcMain.handle('shell:open-external', async (_event, url: string): Promise<void> => {
+    console.log('[IPC] Open external URL requested:', url);
+    await shell.openExternal(url);
+  });
+
+  ipcMain.handle('docs:get-camera-permissions-path', async (): Promise<string> => {
+    console.log('[IPC] Camera permissions doc path requested');
+    const docsPath = path.join(app.getAppPath(), 'docs', 'camera-permissions.md');
+    return docsPath;
+  });
 }
 
 export function cleanupIpcHandlers(): void {
@@ -277,6 +290,8 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('pause:toggle');
   ipcMain.removeHandler('pause:resume');
   ipcMain.removeHandler('detection:retry');
+  ipcMain.removeHandler('shell:open-external');
+  ipcMain.removeHandler('docs:get-camera-permissions-path');
   ipcMain.removeAllListeners('sensor:camera-error');
   ipcMain.removeAllListeners('sensor:detection-error');
   ipcMain.removeAllListeners('sensor:camera-started');

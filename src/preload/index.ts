@@ -46,6 +46,12 @@ export interface ElectronAPI {
     resume: () => Promise<void>;
     onStateChanged: (callback: (state: PauseState) => void) => void;
   };
+  shell: {
+    openExternal: (url: string) => Promise<void>;
+  };
+  docs: {
+    getCameraPermissionsPath: () => Promise<string>;
+  };
 }
 
 const electronAPI: ElectronAPI = {
@@ -102,6 +108,12 @@ const electronAPI: ElectronAPI = {
     onStateChanged: (callback: (state: PauseState) => void) => {
       ipcRenderer.on('pause:state-changed', (_event, state: PauseState) => callback(state));
     },
+  },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  },
+  docs: {
+    getCameraPermissionsPath: () => ipcRenderer.invoke('docs:get-camera-permissions-path'),
   },
 };
 
