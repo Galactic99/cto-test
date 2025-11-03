@@ -28,4 +28,21 @@ export interface DetectionStatus {
   features: DetectionFeatures;
   fpsMode: FpsMode;
   lastUpdate?: number;
+  error?: DetectionError;
+}
+
+export type DetectionErrorType =
+  | 'camera_permission_denied'
+  | 'camera_not_found'
+  | 'camera_in_use'
+  | 'model_load_failed'
+  | 'runtime_error'
+  | 'unknown';
+
+export interface DetectionError {
+  type: DetectionErrorType;
+  message: string;
+  timestamp: number;
+  retryable: boolean;
+  retryCount?: number;
 }

@@ -15,6 +15,8 @@ import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blin
 import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggregators';
 import { PostureDetector, createPostureDetector, PostureMetrics } from './metrics/posture';
 import { DetectionLoop, createDetectionLoop } from './loop';
+import { RetryManager } from './retryManager';
+import { DetectionError, DetectionErrorType } from '../../types/detection';
 
 declare global {
   interface Window {
@@ -22,6 +24,7 @@ declare global {
       onStartCamera: (callback: () => void) => void;
       onStopCamera: (callback: () => void) => void;
       notifyCameraError: (error: string) => void;
+      notifyDetectionError: (error: DetectionError) => void;
       notifyCameraStarted: () => void;
       notifyCameraStopped: () => void;
       onDetectionConfigure: (
@@ -34,6 +37,7 @@ declare global {
       sendMetricsUpdate: (metrics: any) => void;
       onCalibratePosture: (callback: () => void) => void;
       sendCalibrationResult: (baseline: number) => void;
+      onRetryDetection: (callback: () => void) => void;
     };
     getBlinkMetrics?: () => BlinkMetrics | null;
     getPostureMetrics?: () => PostureMetrics | null;
@@ -64,6 +68,38 @@ let isCalibrating = false;
 let calibrationSamples: number[] = [];
 const CALIBRATION_DURATION = 5000;
 let calibrationStartTime = 0;
+let retryManager: RetryManager | null = null;
+let detectionErrorCount = 0;
+const MAX_CONSECUTIVE_ERRORS = 10;
+
+function createDetectionError(
+  type: DetectionErrorType,
+  message: string,
+  retryable: boolean = true
+): DetectionError {
+  return {
+    type,
+    message,
+    timestamp: Date.now(),
+    retryable,
+    retryCount: retryManager?.getState().attempts || 0,
+  };
+}
+
+function handleDetectionError(error: DetectionError): void {
+  console.error('[Sensor] Detection error:', error);
+  window.sensorAPI.notifyDetectionError(error);
+
+  if (error.retryable && retryManager && retryManager.canRetry()) {
+    console.log('[Sensor] Scheduling automatic retry with backoff');
+    retryManager.scheduleRetry(async () => {
+      console.log('[Sensor] Attempting automatic recovery...');
+      await startCamera();
+    });
+  } else if (!retryManager?.canRetry()) {
+    console.error('[Sensor] Max retries reached, stopping automatic recovery');
+  }
+}
 
 function runDetectionLoop(): void {
   if (!videoElement || !detectionConfig) {
@@ -84,143 +120,164 @@ function runDetectionLoop(): void {
   }
 
   function detectFrame(): void {
-    const now = performance.now();
+    try {
+      const now = performance.now();
 
-    if (!detectionLoop || !videoElement || !detectionConfig) {
-      return;
-    }
-
-    if (!detectionLoop.shouldProcessFrame(now)) {
-      detectionLoopId = requestAnimationFrame(detectFrame);
-      return;
-    }
-
-    const processingStartTime = performance.now();
-    let hasResult = false;
-
-    if (detectionConfig.features.blink && faceLandmarker) {
-      const result = faceLandmarker.detect(videoElement);
-
-      if (result) {
-        hasResult = true;
-
-        if (warmupFramesProcessed < WARMUP_FRAMES) {
-          warmupFramesProcessed++;
-          if (warmupFramesProcessed === WARMUP_FRAMES) {
-            console.log('[Sensor] Warmup complete, face model ready for detection');
-          }
-        }
-
-        if (blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
-          const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-          blinkDetector.processFrame(result, now);
-          const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-
-          if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
-            blinkRateAggregator.addEvent(now);
-          }
-        }
+      if (!detectionLoop || !videoElement || !detectionConfig) {
+        return;
       }
-    }
 
-    if (detectionConfig.features.posture && poseLandmarker) {
-      const result = poseLandmarker.detect(videoElement);
+      if (!detectionLoop.shouldProcessFrame(now)) {
+        detectionLoopId = requestAnimationFrame(detectFrame);
+        return;
+      }
 
-      if (result) {
-        hasResult = true;
+      const processingStartTime = performance.now();
+      let hasResult = false;
 
-        if (warmupFramesProcessed < WARMUP_FRAMES) {
-          warmupFramesProcessed++;
-          if (warmupFramesProcessed === WARMUP_FRAMES) {
-            console.log('[Sensor] Warmup complete, pose model ready for detection');
+      if (detectionConfig.features.blink && faceLandmarker) {
+        const result = faceLandmarker.detect(videoElement);
+
+        if (result) {
+          hasResult = true;
+
+          if (warmupFramesProcessed < WARMUP_FRAMES) {
+            warmupFramesProcessed++;
+            if (warmupFramesProcessed === WARMUP_FRAMES) {
+              console.log('[Sensor] Warmup complete, face model ready for detection');
+            }
           }
-        }
 
-        if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
-          postureDetector.processFrame(result, now);
+          if (blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+            const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
+            blinkDetector.processFrame(result, now);
+            const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
 
-          if (isCalibrating) {
-            const metrics = postureDetector.getMetrics();
-            calibrationSamples.push(metrics.headPitchAngle);
-
-            if (now - calibrationStartTime >= CALIBRATION_DURATION) {
-              const averageBaseline =
-                calibrationSamples.reduce((sum, val) => sum + val, 0) /
-                calibrationSamples.length;
-              console.log(
-                `[Sensor] Calibration complete: baseline=${averageBaseline.toFixed(2)}° (${calibrationSamples.length} samples)`
-              );
-              window.sensorAPI.sendCalibrationResult(averageBaseline);
-              isCalibrating = false;
-              calibrationSamples = [];
+            if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
+              blinkRateAggregator.addEvent(now);
             }
           }
         }
       }
-    }
 
-    if (hasResult) {
-      const processingEndTime = performance.now();
-      detectionLoop.recordProcessingTime(processingStartTime, processingEndTime);
+      if (detectionConfig.features.posture && poseLandmarker) {
+        const result = poseLandmarker.detect(videoElement);
 
-      if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
-        const metricsUpdate: any = {};
-        const loopMetrics = detectionLoop.getMetrics(now);
+        if (result) {
+          hasResult = true;
 
-        console.log(
-          `[Sensor] Performance: ${loopMetrics.currentFps.toFixed(2)} FPS (target: ${loopMetrics.targetFps}), CPU: ${loopMetrics.cpuUsagePercent.toFixed(2)}%, Processed: ${loopMetrics.framesProcessed}, Skipped: ${loopMetrics.framesSkipped}`
+          if (warmupFramesProcessed < WARMUP_FRAMES) {
+            warmupFramesProcessed++;
+            if (warmupFramesProcessed === WARMUP_FRAMES) {
+              console.log('[Sensor] Warmup complete, pose model ready for detection');
+            }
+          }
+
+          if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+            postureDetector.processFrame(result, now);
+
+            if (isCalibrating) {
+              const metrics = postureDetector.getMetrics();
+              calibrationSamples.push(metrics.headPitchAngle);
+
+              if (now - calibrationStartTime >= CALIBRATION_DURATION) {
+                const averageBaseline =
+                  calibrationSamples.reduce((sum, val) => sum + val, 0) /
+                  calibrationSamples.length;
+                console.log(
+                  `[Sensor] Calibration complete: baseline=${averageBaseline.toFixed(2)}° (${calibrationSamples.length} samples)`
+                );
+                window.sensorAPI.sendCalibrationResult(averageBaseline);
+                isCalibrating = false;
+                calibrationSamples = [];
+              }
+            }
+          }
+        }
+      }
+
+      if (hasResult) {
+        detectionErrorCount = 0;
+        const processingEndTime = performance.now();
+        detectionLoop.recordProcessingTime(processingStartTime, processingEndTime);
+
+        if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
+          const metricsUpdate: any = {};
+          const loopMetrics = detectionLoop.getMetrics(now);
+
+          console.log(
+            `[Sensor] Performance: ${loopMetrics.currentFps.toFixed(2)} FPS (target: ${loopMetrics.targetFps}), CPU: ${loopMetrics.cpuUsagePercent.toFixed(2)}%, Processed: ${loopMetrics.framesProcessed}, Skipped: ${loopMetrics.framesSkipped}`
+          );
+
+          if (loopMetrics.isThrottled) {
+            console.warn(`[Sensor] Throttling active: ${loopMetrics.throttleReason}`);
+          }
+
+          if (detectionConfig.features.blink && blinkDetector && blinkRateAggregator) {
+            const metrics = blinkDetector.getMetrics(now);
+            const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
+            console.log(
+              `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, Instant BPM=${metrics.blinksPerMinute}, Aggregated BPM=${aggregatedMetrics.blinksPerMinute.toFixed(2)}, EAR=${metrics.averageEAR.toFixed(3)}`
+            );
+
+            metricsUpdate.blink = {
+              timestamp: now,
+              blinkCount: aggregatedMetrics.eventCount,
+              blinkRate: aggregatedMetrics.blinksPerMinute,
+            };
+          }
+
+          if (detectionConfig.features.posture && postureDetector) {
+            const postureMetrics = postureDetector.getMetrics();
+            console.log(
+              `[Sensor] Posture Metrics: Score=${postureMetrics.postureScore.toFixed(1)}, Head Pitch=${postureMetrics.headPitchAngle.toFixed(1)}°, Shoulder Roll=${postureMetrics.shoulderRollAngle.toFixed(2)}`
+            );
+
+            metricsUpdate.posture = {
+              timestamp: now,
+              postureScore: postureMetrics.postureScore,
+              headPitchAngle: postureMetrics.headPitchAngle,
+              shoulderRollAngle: postureMetrics.shoulderRollAngle,
+            };
+          }
+
+          metricsUpdate.loop = {
+            currentFps: loopMetrics.currentFps,
+            targetFps: loopMetrics.targetFps,
+            cpuUsage: loopMetrics.cpuUsagePercent,
+            isThrottled: loopMetrics.isThrottled,
+            throttleReason: loopMetrics.throttleReason,
+          };
+
+          if (Object.keys(metricsUpdate).length > 0) {
+            window.sensorAPI.sendMetricsUpdate(metricsUpdate);
+          }
+
+          detectionLoop.resetMetrics();
+          lastMetricsReportTime = now;
+        }
+      }
+
+      detectionLoopId = requestAnimationFrame(detectFrame);
+    } catch (error) {
+      detectionErrorCount++;
+      console.error('[Sensor] Runtime error in detection loop:', error);
+
+      if (detectionErrorCount >= MAX_CONSECUTIVE_ERRORS) {
+        console.error('[Sensor] Too many consecutive errors, stopping detection');
+        stopDetectionLoop();
+        const detectionError = createDetectionError(
+          'runtime_error',
+          `Detection loop failed after ${MAX_CONSECUTIVE_ERRORS} consecutive errors: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          true
         );
-
-        if (loopMetrics.isThrottled) {
-          console.warn(`[Sensor] Throttling active: ${loopMetrics.throttleReason}`);
-        }
-
-        if (detectionConfig.features.blink && blinkDetector && blinkRateAggregator) {
-          const metrics = blinkDetector.getMetrics(now);
-          const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
-          console.log(
-            `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, Instant BPM=${metrics.blinksPerMinute}, Aggregated BPM=${aggregatedMetrics.blinksPerMinute.toFixed(2)}, EAR=${metrics.averageEAR.toFixed(3)}`
-          );
-
-          metricsUpdate.blink = {
-            timestamp: now,
-            blinkCount: aggregatedMetrics.eventCount,
-            blinkRate: aggregatedMetrics.blinksPerMinute,
-          };
-        }
-
-        if (detectionConfig.features.posture && postureDetector) {
-          const postureMetrics = postureDetector.getMetrics();
-          console.log(
-            `[Sensor] Posture Metrics: Score=${postureMetrics.postureScore.toFixed(1)}, Head Pitch=${postureMetrics.headPitchAngle.toFixed(1)}°, Shoulder Roll=${postureMetrics.shoulderRollAngle.toFixed(2)}`
-          );
-
-          metricsUpdate.posture = {
-            timestamp: now,
-            postureScore: postureMetrics.postureScore,
-            headPitchAngle: postureMetrics.headPitchAngle,
-            shoulderRollAngle: postureMetrics.shoulderRollAngle,
-          };
-        }
-
-        metricsUpdate.loop = {
-          currentFps: loopMetrics.currentFps,
-          targetFps: loopMetrics.targetFps,
-          cpuUsage: loopMetrics.cpuUsagePercent,
-          isThrottled: loopMetrics.isThrottled,
-          throttleReason: loopMetrics.throttleReason,
-        };
-
-        if (Object.keys(metricsUpdate).length > 0) {
-          window.sensorAPI.sendMetricsUpdate(metricsUpdate);
-        }
-
-        detectionLoop.resetMetrics();
-        lastMetricsReportTime = now;
+        handleDetectionError(detectionError);
+      } else {
+        detectionLoopId = requestAnimationFrame(detectFrame);
       }
     }
-
-    detectionLoopId = requestAnimationFrame(detectFrame);
   }
 
   detectFrame();
@@ -248,83 +305,99 @@ async function initializeModel(): Promise<void> {
     return;
   }
 
-  if (detectionConfig.features.blink && !faceLandmarker) {
-    if (!isFaceLandmarkerInitialized()) {
-      console.log('[Sensor] Initializing Face Landmarker model...');
-      const startTime = performance.now();
+  try {
+    if (detectionConfig.features.blink && !faceLandmarker) {
+      if (!isFaceLandmarkerInitialized()) {
+        console.log('[Sensor] Initializing Face Landmarker model...');
+        const startTime = performance.now();
 
-      try {
-        faceLandmarker = await initializeFaceLandmarker({
-          preferGpu: true,
-          numFaces: 1,
-          minFaceDetectionConfidence: 0.5,
-          minFacePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
+        try {
+          faceLandmarker = await initializeFaceLandmarker({
+            preferGpu: true,
+            numFaces: 1,
+            minFaceDetectionConfidence: 0.5,
+            minFacePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
 
-        const loadTime = performance.now() - startTime;
-        console.log(
-          `[Sensor] Face Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
-        );
-        console.log('[Sensor] Face Landmarker ready for detection');
-      } catch (error) {
-        console.error('[Sensor] Failed to initialize Face Landmarker:', error);
-        throw error;
+          const loadTime = performance.now() - startTime;
+          console.log(
+            `[Sensor] Face Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
+          );
+          console.log('[Sensor] Face Landmarker ready for detection');
+        } catch (error) {
+          console.error('[Sensor] Failed to initialize Face Landmarker:', error);
+          const detectionError = createDetectionError(
+            'model_load_failed',
+            `Failed to load face detection model: ${error instanceof Error ? error.message : String(error)}`,
+            true
+          );
+          handleDetectionError(detectionError);
+          throw error;
+        }
+      } else {
+        faceLandmarker = await initializeFaceLandmarker();
+        console.log('[Sensor] Reusing existing Face Landmarker instance');
       }
-    } else {
-      faceLandmarker = await initializeFaceLandmarker();
-      console.log('[Sensor] Reusing existing Face Landmarker instance');
-    }
 
-    if (!blinkDetector) {
-      blinkDetector = createBlinkDetector();
-      console.log('[Sensor] Blink detector initialized');
-    }
-
-    if (!blinkRateAggregator) {
-      blinkRateAggregator = createBlinkRateAggregator(3);
-      console.log('[Sensor] Blink rate aggregator initialized (3-minute window)');
-    }
-  }
-
-  if (detectionConfig.features.posture && !poseLandmarker) {
-    if (!isPoseLandmarkerInitialized()) {
-      console.log('[Sensor] Initializing Pose Landmarker model...');
-      const startTime = performance.now();
-
-      try {
-        poseLandmarker = await initializePoseLandmarker({
-          preferGpu: true,
-          minPoseDetectionConfidence: 0.5,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
-
-        const loadTime = performance.now() - startTime;
-        console.log(
-          `[Sensor] Pose Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
-        );
-        console.log('[Sensor] Pose Landmarker ready for detection');
-      } catch (error) {
-        console.error('[Sensor] Failed to initialize Pose Landmarker:', error);
-        throw error;
+      if (!blinkDetector) {
+        blinkDetector = createBlinkDetector();
+        console.log('[Sensor] Blink detector initialized');
       }
-    } else {
-      poseLandmarker = await initializePoseLandmarker();
-      console.log('[Sensor] Reusing existing Pose Landmarker instance');
+
+      if (!blinkRateAggregator) {
+        blinkRateAggregator = createBlinkRateAggregator(3);
+        console.log('[Sensor] Blink rate aggregator initialized (3-minute window)');
+      }
     }
 
-    if (!postureDetector) {
-      postureDetector = createPostureDetector();
-      console.log('[Sensor] Posture detector initialized');
-    }
+    if (detectionConfig.features.posture && !poseLandmarker) {
+      if (!isPoseLandmarkerInitialized()) {
+        console.log('[Sensor] Initializing Pose Landmarker model...');
+        const startTime = performance.now();
 
-    if (detectionConfig.postureBaselinePitch !== undefined) {
-      postureDetector.setBaseline(detectionConfig.postureBaselinePitch);
-      console.log(
-        `[Sensor] Applied baseline pitch: ${detectionConfig.postureBaselinePitch.toFixed(2)}°`
-      );
+        try {
+          poseLandmarker = await initializePoseLandmarker({
+            preferGpu: true,
+            minPoseDetectionConfidence: 0.5,
+            minPosePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+
+          const loadTime = performance.now() - startTime;
+          console.log(
+            `[Sensor] Pose Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
+          );
+          console.log('[Sensor] Pose Landmarker ready for detection');
+        } catch (error) {
+          console.error('[Sensor] Failed to initialize Pose Landmarker:', error);
+          const detectionError = createDetectionError(
+            'model_load_failed',
+            `Failed to load posture detection model: ${error instanceof Error ? error.message : String(error)}`,
+            true
+          );
+          handleDetectionError(detectionError);
+          throw error;
+        }
+      } else {
+        poseLandmarker = await initializePoseLandmarker();
+        console.log('[Sensor] Reusing existing Pose Landmarker instance');
+      }
+
+      if (!postureDetector) {
+        postureDetector = createPostureDetector();
+        console.log('[Sensor] Posture detector initialized');
+      }
+
+      if (detectionConfig.postureBaselinePitch !== undefined) {
+        postureDetector.setBaseline(detectionConfig.postureBaselinePitch);
+        console.log(
+          `[Sensor] Applied baseline pitch: ${detectionConfig.postureBaselinePitch.toFixed(2)}°`
+        );
+      }
     }
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -365,6 +438,12 @@ function cleanupModel(): void {
 async function startCamera(): Promise<void> {
   try {
     console.log('[Sensor] Starting camera...');
+    
+    if (!retryManager) {
+      retryManager = new RetryManager();
+      console.log('[Sensor] Retry manager initialized');
+    }
+    
     videoElement = document.getElementById('video') as HTMLVideoElement;
 
     if (!videoElement) {
@@ -393,10 +472,17 @@ async function startCamera(): Promise<void> {
       runDetectionLoop();
     }
 
+    detectionErrorCount = 0;
+    if (retryManager) {
+      retryManager.reset();
+    }
+
     window.sensorAPI.notifyCameraStarted();
   } catch (error) {
     console.error('[Sensor] Error starting camera:', error);
     let errorMessage = 'Unknown error';
+    let errorType: DetectionErrorType = 'unknown';
+    let retryable = true;
 
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -408,14 +494,23 @@ async function startCamera(): Promise<void> {
 
       if (domError.name === 'NotAllowedError') {
         errorMessage = 'Camera permission denied by user';
+        errorType = 'camera_permission_denied';
+        retryable = false;
       } else if (domError.name === 'NotFoundError') {
         errorMessage = 'No camera found on this device';
+        errorType = 'camera_not_found';
+        retryable = false;
       } else if (domError.name === 'NotReadableError') {
         errorMessage = 'Camera is already in use by another application';
+        errorType = 'camera_in_use';
+        retryable = true;
       }
     }
 
     window.sensorAPI.notifyCameraError(errorMessage);
+
+    const detectionError = createDetectionError(errorType, errorMessage, retryable);
+    handleDetectionError(detectionError);
   }
 }
 
@@ -503,8 +598,20 @@ window.sensorAPI.onCalibratePosture(() => {
   console.log('[Sensor] Starting posture calibration (5 seconds)...');
 });
 
+window.sensorAPI.onRetryDetection(() => {
+  console.log('[Sensor] Manual retry requested');
+  if (retryManager) {
+    retryManager.reset();
+  }
+  detectionErrorCount = 0;
+  startCamera();
+});
+
 window.addEventListener('beforeunload', () => {
   console.log('[Sensor] Window unloading, stopping camera and cleaning up');
+  if (retryManager) {
+    retryManager.reset();
+  }
   stopDetectionLoop();
   stopCamera();
 });

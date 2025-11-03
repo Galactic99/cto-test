@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DetectionSettings as DetectionSettingsType, FpsMode } from '../../types/settings';
-import { DetectionStatus } from '../../types/detection';
+import { DetectionStatus, DetectionError } from '../../types/detection';
 import PrivacyNote from './PrivacyNote';
 
 interface DetectionSettingsProps {
@@ -28,6 +28,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
   const [updating, setUpdating] = useState(false);
   const [showPrivacyNote, setShowPrivacyNote] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [detectionError, setDetectionError] = useState<DetectionError | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -38,9 +39,16 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
       setCameraError(error);
     });
 
+    window.electronAPI.sensor.onDetectionError((error) => {
+      console.error('[DetectionSettings] Detection error:', error);
+      setDetectionError(error);
+      setCameraError(null);
+    });
+
     window.electronAPI.sensor.onCameraStarted(() => {
       console.log('[DetectionSettings] Camera started');
       setCameraError(null);
+      setDetectionError(null);
     });
 
     window.electronAPI.sensor.onCameraStopped(() => {
@@ -220,14 +228,52 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
 
   const handleRetryCamera = async (): Promise<void> => {
     setCameraError(null);
+    setDetectionError(null);
     if (detectionSettings.enabled && detectionSettings.privacyConsentGiven) {
       try {
-        await window.electronAPI.detection.start();
+        await window.electronAPI.detection.retry();
       } catch (error) {
         console.error('[DetectionSettings] Failed to retry camera:', error);
         setCameraError('Failed to start camera. Please check permissions and try again.');
       }
     }
+  };
+
+  const getErrorMessage = (): string => {
+    if (detectionError) {
+      return detectionError.message;
+    }
+    if (cameraError) {
+      return cameraError;
+    }
+    return '';
+  };
+
+  const getErrorTitle = (): string => {
+    if (!detectionError) {
+      return 'Camera Error';
+    }
+
+    switch (detectionError.type) {
+      case 'camera_permission_denied':
+        return 'Camera Permission Denied';
+      case 'camera_not_found':
+        return 'Camera Not Found';
+      case 'camera_in_use':
+        return 'Camera In Use';
+      case 'model_load_failed':
+        return 'Model Load Failed';
+      case 'runtime_error':
+        return 'Detection Error';
+      default:
+        return 'Detection Error';
+    }
+  };
+
+  const shouldShowRetry = (): boolean => {
+    if (cameraError) return true;
+    if (detectionError && detectionError.retryable) return true;
+    return false;
   };
 
   if (loading) {
@@ -309,8 +355,8 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
           </div>
         )}
 
-        {/* Camera error message */}
-        {cameraError && (
+        {/* Detection/Camera error message */}
+        {(cameraError || detectionError) && (
           <div
             style={{
               marginBottom: '20px',
@@ -323,22 +369,36 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
             }}
           >
             <div style={{ marginBottom: '10px' }}>
-              <strong>⚠ Camera Error:</strong> {cameraError}
+              <strong>⚠ {getErrorTitle()}:</strong> {getErrorMessage()}
             </div>
-            <button
-              onClick={handleRetryCamera}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: '#721c24',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
-            >
-              Retry Camera Access
-            </button>
+            {detectionError?.retryCount !== undefined && detectionError.retryCount > 0 && (
+              <div style={{ marginBottom: '10px', fontSize: '12px', color: '#856404' }}>
+                Retry attempt {detectionError.retryCount} of 5
+              </div>
+            )}
+            {shouldShowRetry() && (
+              <button
+                onClick={handleRetryCamera}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#721c24',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                {detectionError?.retryCount && detectionError.retryCount > 0
+                  ? 'Retry Now'
+                  : 'Retry Camera Access'}
+              </button>
+            )}
+            {detectionError && !detectionError.retryable && (
+              <div style={{ marginTop: '10px', fontSize: '12px', fontStyle: 'italic' }}>
+                This error cannot be automatically resolved. Please check your camera settings and permissions.
+              </div>
+            )}
           </div>
         )}
 
