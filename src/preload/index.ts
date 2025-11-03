@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { AppSettings, DetectionSettings } from '../types/settings';
 import { DetectionMetrics, DetectionStatus } from '../types/detection';
 
+export interface PauseState {
+  isPaused: boolean;
+  pausedUntil: number | null;
+}
+
 export interface ElectronAPI {
   platform: string;
   settings: {
@@ -32,6 +37,12 @@ export interface ElectronAPI {
     setSettings: (settings: Partial<DetectionSettings>) => Promise<DetectionStatus>;
     calibratePosture: () => Promise<void>;
     onMetricsUpdated: (callback: (metrics: DetectionMetrics) => void) => void;
+  };
+  pause: {
+    getState: () => Promise<PauseState>;
+    toggle: (durationMinutes: number) => Promise<void>;
+    resume: () => Promise<void>;
+    onStateChanged: (callback: (state: PauseState) => void) => void;
   };
 }
 
@@ -76,6 +87,14 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.on('detection:metrics-updated', (_event, metrics: DetectionMetrics) =>
         callback(metrics)
       );
+    },
+  },
+  pause: {
+    getState: () => ipcRenderer.invoke('pause:get-state'),
+    toggle: (durationMinutes: number) => ipcRenderer.invoke('pause:toggle', durationMinutes),
+    resume: () => ipcRenderer.invoke('pause:resume'),
+    onStateChanged: (callback: (state: PauseState) => void) => {
+      ipcRenderer.on('pause:state-changed', (_event, state: PauseState) => callback(state));
     },
   },
 };

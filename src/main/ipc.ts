@@ -9,6 +9,7 @@ import * as sensorWindow from './sensorWindow';
 import { getSettingsWindow } from './window';
 import * as detectionState from './detectionState';
 import { createBlinkPolicy, createPosturePolicy } from './detection/policy';
+import { pauseManager, PauseState } from './pauseManager';
 
 let blinkPolicy = createBlinkPolicy();
 let posturePolicy = createPosturePolicy();
@@ -209,6 +210,27 @@ export function registerIpcHandlers(): void {
       settingsWindow.webContents.send('detection:metrics-updated', metrics);
     }
   });
+
+  // Pause control handlers
+  ipcMain.handle('pause:get-state', async (): Promise<PauseState> => {
+    console.log('[IPC] Pause state requested');
+    return pauseManager.getState();
+  });
+
+  ipcMain.handle('pause:toggle', async (_event, durationMinutes: number): Promise<void> => {
+    console.log('[IPC] Pause toggle requested:', durationMinutes);
+    const currentState = pauseManager.getState();
+    if (currentState.isPaused) {
+      pauseManager.resume();
+    } else {
+      pauseManager.pause(durationMinutes);
+    }
+  });
+
+  ipcMain.handle('pause:resume', async (): Promise<void> => {
+    console.log('[IPC] Manual resume requested');
+    pauseManager.resume();
+  });
 }
 
 export function cleanupIpcHandlers(): void {
@@ -227,6 +249,9 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('detection:metrics:get');
   ipcMain.removeHandler('detection:settings:set');
   ipcMain.removeHandler('detection:calibrate:posture');
+  ipcMain.removeHandler('pause:get-state');
+  ipcMain.removeHandler('pause:toggle');
+  ipcMain.removeHandler('pause:resume');
   ipcMain.removeAllListeners('sensor:camera-error');
   ipcMain.removeAllListeners('sensor:camera-started');
   ipcMain.removeAllListeners('sensor:camera-stopped');

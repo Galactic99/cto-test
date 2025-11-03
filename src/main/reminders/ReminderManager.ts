@@ -1,3 +1,5 @@
+import { pauseManager } from '../pauseManager';
+
 export class ReminderManager {
   private timer: NodeJS.Timeout | null = null;
   private intervalMs: number;
@@ -45,7 +47,12 @@ export class ReminderManager {
     }
 
     this.timer = setTimeout(() => {
-      this.callback();
+      const pauseState = pauseManager.getState();
+      if (!pauseState.isPaused) {
+        this.callback();
+      } else {
+        console.log('[ReminderManager] Notification suppressed due to global pause');
+      }
       this.scheduleNext();
     }, this.intervalMs);
   }

@@ -10,6 +10,7 @@ import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
 import * as autostart from './system/autostart';
 import * as sensorWindow from './sensorWindow';
+import { pauseManager } from './pauseManager';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -76,6 +77,7 @@ if (!gotTheLock) {
     // Clean up resources before quitting
     blinkReminder.stop();
     postureReminder.stop();
+    pauseManager.cleanup();
     autostart.cleanup();
     sensorWindow.destroySensorWindow();
     cleanupIpcHandlers();
