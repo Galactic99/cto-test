@@ -4,6 +4,12 @@ import {
   isFaceLandmarkerInitialized,
   FaceLandmarkerInstance,
 } from './models/faceLandmarker';
+import {
+  initializePoseLandmarker,
+  closePoseLandmarker,
+  isPoseLandmarkerInitialized,
+  PoseLandmarkerInstance,
+} from './models/poseLandmarker';
 import { DetectionFeatures, FpsMode } from '../../types/settings';
 import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blink';
 import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggregators';
@@ -33,6 +39,7 @@ interface DetectionConfig {
 let mediaStream: MediaStream | null = null;
 let videoElement: HTMLVideoElement | null = null;
 let faceLandmarker: FaceLandmarkerInstance | null = null;
+let poseLandmarker: PoseLandmarkerInstance | null = null;
 let blinkDetector: BlinkDetector | null = null;
 let blinkRateAggregator: BlinkRateAggregator | null = null;
 let detectionConfig: DetectionConfig | null = null;
@@ -58,7 +65,11 @@ function getFpsInterval(fpsMode: FpsMode): number {
 }
 
 function runDetectionLoop(): void {
-  if (!videoElement || !faceLandmarker || !detectionConfig) {
+  if (!videoElement || !detectionConfig) {
+    return;
+  }
+
+  if (!faceLandmarker && !poseLandmarker) {
     return;
   }
 
@@ -72,28 +83,63 @@ function runDetectionLoop(): void {
     if (elapsed >= fpsInterval) {
       lastFrameTime = now - (elapsed % fpsInterval);
 
-      if (videoElement && faceLandmarker) {
-        const result = faceLandmarker.detect(videoElement);
+      if (videoElement) {
+        let hasResult = false;
 
-        if (result) {
+        if (detectionConfig?.features.blink && faceLandmarker) {
+          const result = faceLandmarker.detect(videoElement);
+
+          if (result) {
+            hasResult = true;
+
+            if (warmupFramesProcessed < WARMUP_FRAMES) {
+              warmupFramesProcessed++;
+              if (warmupFramesProcessed === WARMUP_FRAMES) {
+                console.log('[Sensor] Warmup complete, face model ready for detection');
+              }
+            }
+
+            if (blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+              const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
+              blinkDetector.processFrame(result, now);
+              const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
+
+              if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
+                blinkRateAggregator.addEvent(now);
+              }
+            }
+          }
+        }
+
+        if (detectionConfig?.features.posture && poseLandmarker) {
+          const result = poseLandmarker.detect(videoElement);
+
+          if (result) {
+            hasResult = true;
+
+            if (warmupFramesProcessed < WARMUP_FRAMES) {
+              warmupFramesProcessed++;
+              if (warmupFramesProcessed === WARMUP_FRAMES) {
+                console.log('[Sensor] Warmup complete, pose model ready for detection');
+              }
+            }
+
+            if (
+              warmupFramesProcessed >= WARMUP_FRAMES &&
+              result.landmarks &&
+              result.landmarks.length > 0
+            ) {
+              console.log(
+                '[Sensor] Pose landmarks detected:',
+                result.landmarks[0].length,
+                'landmarks'
+              );
+            }
+          }
+        }
+
+        if (hasResult) {
           frameCount++;
-
-          if (warmupFramesProcessed < WARMUP_FRAMES) {
-            warmupFramesProcessed++;
-            if (warmupFramesProcessed === WARMUP_FRAMES) {
-              console.log('[Sensor] Warmup complete, model ready for detection');
-            }
-          }
-
-          if (detectionConfig?.features.blink && blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
-            const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-            blinkDetector.processFrame(result, now);
-            const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-            
-            if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
-              blinkRateAggregator.addEvent(now);
-            }
-          }
 
           if (now - lastFpsLogTime >= 5000) {
             const fps = (frameCount / 5).toFixed(2);
@@ -152,44 +198,76 @@ function stopDetectionLoop(): void {
 }
 
 async function initializeModel(): Promise<void> {
-  if (faceLandmarker) {
-    console.log('[Sensor] Model already initialized');
+  if (!detectionConfig) {
+    console.log('[Sensor] No detection config available');
     return;
   }
 
-  if (!isFaceLandmarkerInitialized()) {
-    console.log('[Sensor] Initializing Face Landmarker model...');
-    const startTime = performance.now();
+  if (detectionConfig.features.blink && !faceLandmarker) {
+    if (!isFaceLandmarkerInitialized()) {
+      console.log('[Sensor] Initializing Face Landmarker model...');
+      const startTime = performance.now();
 
-    try {
-      faceLandmarker = await initializeFaceLandmarker({
-        preferGpu: true,
-        numFaces: 1,
-        minFaceDetectionConfidence: 0.5,
-        minFacePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+      try {
+        faceLandmarker = await initializeFaceLandmarker({
+          preferGpu: true,
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.5,
+          minFacePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
 
-      const loadTime = performance.now() - startTime;
-      console.log(`[Sensor] Model initialized successfully in ${loadTime.toFixed(2)}ms`);
-      console.log('[Sensor] Model ready for detection');
-    } catch (error) {
-      console.error('[Sensor] Failed to initialize model:', error);
-      throw error;
+        const loadTime = performance.now() - startTime;
+        console.log(
+          `[Sensor] Face Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
+        );
+        console.log('[Sensor] Face Landmarker ready for detection');
+      } catch (error) {
+        console.error('[Sensor] Failed to initialize Face Landmarker:', error);
+        throw error;
+      }
+    } else {
+      faceLandmarker = await initializeFaceLandmarker();
+      console.log('[Sensor] Reusing existing Face Landmarker instance');
     }
-  } else {
-    faceLandmarker = await initializeFaceLandmarker();
-    console.log('[Sensor] Reusing existing model instance');
+
+    if (!blinkDetector) {
+      blinkDetector = createBlinkDetector();
+      console.log('[Sensor] Blink detector initialized');
+    }
+
+    if (!blinkRateAggregator) {
+      blinkRateAggregator = createBlinkRateAggregator(3);
+      console.log('[Sensor] Blink rate aggregator initialized (3-minute window)');
+    }
   }
 
-  if (!blinkDetector) {
-    blinkDetector = createBlinkDetector();
-    console.log('[Sensor] Blink detector initialized');
-  }
+  if (detectionConfig.features.posture && !poseLandmarker) {
+    if (!isPoseLandmarkerInitialized()) {
+      console.log('[Sensor] Initializing Pose Landmarker model...');
+      const startTime = performance.now();
 
-  if (!blinkRateAggregator) {
-    blinkRateAggregator = createBlinkRateAggregator(3);
-    console.log('[Sensor] Blink rate aggregator initialized (3-minute window)');
+      try {
+        poseLandmarker = await initializePoseLandmarker({
+          preferGpu: true,
+          minPoseDetectionConfidence: 0.5,
+          minPosePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        const loadTime = performance.now() - startTime;
+        console.log(
+          `[Sensor] Pose Landmarker initialized successfully in ${loadTime.toFixed(2)}ms`
+        );
+        console.log('[Sensor] Pose Landmarker ready for detection');
+      } catch (error) {
+        console.error('[Sensor] Failed to initialize Pose Landmarker:', error);
+        throw error;
+      }
+    } else {
+      poseLandmarker = await initializePoseLandmarker();
+      console.log('[Sensor] Reusing existing Pose Landmarker instance');
+    }
   }
 }
 
@@ -197,6 +275,11 @@ function cleanupModel(): void {
   if (faceLandmarker) {
     faceLandmarker.close();
     faceLandmarker = null;
+  }
+
+  if (poseLandmarker) {
+    poseLandmarker.close();
+    poseLandmarker = null;
   }
 
   if (blinkDetector) {
@@ -212,6 +295,7 @@ function cleanupModel(): void {
   }
 
   closeFaceLandmarker();
+  closePoseLandmarker();
   console.log('[Sensor] Model resources cleaned up');
 }
 
