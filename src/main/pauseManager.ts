@@ -1,25 +1,30 @@
 import { getSettingsWindow } from './window';
 
+export type PauseSource = 'manual' | 'idle' | null;
+
 export interface PauseState {
   isPaused: boolean;
   pausedUntil: number | null;
+  source?: PauseSource;
 }
 
 class PauseManager {
   private isPaused: boolean = false;
   private pausedUntil: number | null = null;
+  private pauseSource: PauseSource = null;
   private resumeTimer: NodeJS.Timeout | null = null;
   private listeners: Array<(state: PauseState) => void> = [];
 
   constructor() {}
 
-  public pause(durationMinutes: number): void {
+  public pause(durationMinutes: number, source: PauseSource = 'manual'): void {
     if (this.isPaused) {
       console.log('[PauseManager] Already paused, extending duration');
     }
 
     this.isPaused = true;
     this.pausedUntil = Date.now() + durationMinutes * 60 * 1000;
+    this.pauseSource = source;
 
     if (this.resumeTimer) {
       clearTimeout(this.resumeTimer);
@@ -30,7 +35,7 @@ class PauseManager {
     }, durationMinutes * 60 * 1000);
 
     console.log(
-      `[PauseManager] Paused all notifications for ${durationMinutes} minutes until ${new Date(this.pausedUntil).toLocaleTimeString()}`
+      `[PauseManager] Paused all notifications for ${durationMinutes} minutes until ${new Date(this.pausedUntil).toLocaleTimeString()} (source: ${source})`
     );
 
     this.notifyListeners();
@@ -44,6 +49,7 @@ class PauseManager {
 
     this.isPaused = false;
     this.pausedUntil = null;
+    this.pauseSource = null;
 
     if (this.resumeTimer) {
       clearTimeout(this.resumeTimer);
@@ -60,6 +66,7 @@ class PauseManager {
     return {
       isPaused: this.isPaused,
       pausedUntil: this.pausedUntil,
+      source: this.pauseSource,
     };
   }
 
@@ -90,6 +97,7 @@ class PauseManager {
     this.listeners = [];
     this.isPaused = false;
     this.pausedUntil = null;
+    this.pauseSource = null;
   }
 }
 

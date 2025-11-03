@@ -62,7 +62,21 @@ const schema = {
   },
   detection: {
     type: 'object',
-    properties: {},
+    properties: {
+      idleDetection: {
+        type: 'object',
+        properties: {
+          enabled: {
+            type: 'boolean',
+          },
+          thresholdMinutes: {
+            type: 'number',
+            minimum: 1,
+            maximum: 60,
+          },
+        },
+      },
+    },
   },
 } as const;
 
