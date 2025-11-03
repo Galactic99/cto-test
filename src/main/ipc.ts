@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { AppSettings, DetectionSettings } from '../types/settings';
-import { DetectionMetrics, DetectionStatus } from '../types/detection';
+import { DetectionMetrics, DetectionStatus, DetectionError } from '../types/detection';
 import { getSettings, setSettings } from './store/settings';
 import * as blinkReminder from './reminders/blink';
 import * as postureReminder from './reminders/posture';
@@ -84,8 +84,19 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.on('sensor:detection-error', (_event, error: DetectionError) => {
+    console.error('[IPC] Detection error from sensor window:', error);
+    detectionState.setDetectionError(error);
+    
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('sensor:detection-error', error);
+    }
+  });
+
   ipcMain.on('sensor:camera-started', () => {
     console.log('[IPC] Camera started successfully');
+    detectionState.clearDetectionError();
     const settingsWindow = getSettingsWindow();
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       settingsWindow.webContents.send('sensor:camera-started');
@@ -231,6 +242,12 @@ export function registerIpcHandlers(): void {
     console.log('[IPC] Manual resume requested');
     pauseManager.resume();
   });
+
+  ipcMain.handle('detection:retry', async (): Promise<void> => {
+    console.log('[IPC] Detection retry requested');
+    detectionState.clearDetectionError();
+    sensorWindow.sendToSensor('sensor:retry-detection');
+  });
 }
 
 export function cleanupIpcHandlers(): void {
@@ -252,7 +269,9 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('pause:get-state');
   ipcMain.removeHandler('pause:toggle');
   ipcMain.removeHandler('pause:resume');
+  ipcMain.removeHandler('detection:retry');
   ipcMain.removeAllListeners('sensor:camera-error');
+  ipcMain.removeAllListeners('sensor:detection-error');
   ipcMain.removeAllListeners('sensor:camera-started');
   ipcMain.removeAllListeners('sensor:camera-stopped');
   ipcMain.removeAllListeners('sensor:metrics-update');

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { AppSettings, DetectionSettings } from '../types/settings';
-import { DetectionMetrics, DetectionStatus } from '../types/detection';
+import { DetectionMetrics, DetectionStatus, DetectionError } from '../types/detection';
 
 export interface PauseState {
   isPaused: boolean;
@@ -26,6 +26,7 @@ export interface ElectronAPI {
     startCamera: () => Promise<void>;
     stopCamera: () => Promise<void>;
     onCameraError: (callback: (error: string) => void) => void;
+    onDetectionError: (callback: (error: DetectionError) => void) => void;
     onCameraStarted: (callback: () => void) => void;
     onCameraStopped: (callback: () => void) => void;
   };
@@ -36,6 +37,7 @@ export interface ElectronAPI {
     getMetrics: () => Promise<DetectionMetrics>;
     setSettings: (settings: Partial<DetectionSettings>) => Promise<DetectionStatus>;
     calibratePosture: () => Promise<void>;
+    retry: () => Promise<void>;
     onMetricsUpdated: (callback: (metrics: DetectionMetrics) => void) => void;
   };
   pause: {
@@ -68,6 +70,9 @@ const electronAPI: ElectronAPI = {
     onCameraError: (callback: (error: string) => void) => {
       ipcRenderer.on('sensor:camera-error', (_event, error: string) => callback(error));
     },
+    onDetectionError: (callback: (error: DetectionError) => void) => {
+      ipcRenderer.on('sensor:detection-error', (_event, error: DetectionError) => callback(error));
+    },
     onCameraStarted: (callback: () => void) => {
       ipcRenderer.on('sensor:camera-started', () => callback());
     },
@@ -83,6 +88,7 @@ const electronAPI: ElectronAPI = {
     setSettings: (settings: Partial<DetectionSettings>) =>
       ipcRenderer.invoke('detection:settings:set', settings),
     calibratePosture: () => ipcRenderer.invoke('detection:calibrate:posture'),
+    retry: () => ipcRenderer.invoke('detection:retry'),
     onMetricsUpdated: (callback: (metrics: DetectionMetrics) => void) => {
       ipcRenderer.on('detection:metrics-updated', (_event, metrics: DetectionMetrics) =>
         callback(metrics)

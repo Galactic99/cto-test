@@ -1,11 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { DetectionSettings } from '../types/settings';
-import { DetectionMetrics } from '../types/detection';
+import { DetectionMetrics, DetectionError } from '../types/detection';
 
 export interface SensorAPI {
   onStartCamera: (callback: () => void) => void;
   onStopCamera: (callback: () => void) => void;
   notifyCameraError: (error: string) => void;
+  notifyDetectionError: (error: DetectionError) => void;
   notifyCameraStarted: () => void;
   notifyCameraStopped: () => void;
   onDetectionConfigure: (
@@ -18,6 +19,7 @@ export interface SensorAPI {
   sendMetricsUpdate: (metrics: DetectionMetrics) => void;
   onCalibratePosture: (callback: () => void) => void;
   sendCalibrationResult: (baseline: number) => void;
+  onRetryDetection: (callback: () => void) => void;
 }
 
 const sensorAPI: SensorAPI = {
@@ -29,6 +31,9 @@ const sensorAPI: SensorAPI = {
   },
   notifyCameraError: (error: string) => {
     ipcRenderer.send('sensor:camera-error', error);
+  },
+  notifyDetectionError: (error: DetectionError) => {
+    ipcRenderer.send('sensor:detection-error', error);
   },
   notifyCameraStarted: () => {
     ipcRenderer.send('sensor:camera-started');
@@ -63,6 +68,9 @@ const sensorAPI: SensorAPI = {
   },
   sendCalibrationResult: (baseline: number) => {
     ipcRenderer.send('sensor:calibration-result', baseline);
+  },
+  onRetryDetection: (callback: () => void) => {
+    ipcRenderer.on('sensor:retry-detection', () => callback());
   },
 };
 

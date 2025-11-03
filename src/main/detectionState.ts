@@ -1,5 +1,5 @@
 import { DetectionSettings, DetectionFeatures, FpsMode } from '../types/settings';
-import { DetectionStatus, DetectionMetrics } from '../types/detection';
+import { DetectionStatus, DetectionMetrics, DetectionError } from '../types/detection';
 import * as sensorWindow from './sensorWindow';
 import { getSettings } from './store/settings';
 
@@ -8,6 +8,7 @@ interface DetectionState {
   features: DetectionFeatures;
   fpsMode: FpsMode;
   metrics: DetectionMetrics;
+  error?: DetectionError;
 }
 
 const defaultFeatures: DetectionFeatures = {
@@ -28,6 +29,7 @@ export function getStatus(): DetectionStatus {
     features: { ...state.features },
     fpsMode: state.fpsMode,
     lastUpdate: Date.now(),
+    error: state.error,
   };
 }
 
@@ -141,4 +143,16 @@ export function resetState(): void {
 
 export function isDetectionRunning(): boolean {
   return state.isRunning;
+}
+
+export function setDetectionError(error: DetectionError): void {
+  state.error = error;
+  console.log('[DetectionState] Detection error set:', error);
+}
+
+export function clearDetectionError(): void {
+  if (state.error) {
+    console.log('[DetectionState] Clearing detection error');
+    state.error = undefined;
+  }
 }
