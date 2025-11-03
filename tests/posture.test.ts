@@ -1,6 +1,7 @@
 import * as postureReminder from '../src/main/reminders/posture';
 import * as settingsStore from '../src/main/store/settings';
 import * as notifications from '../src/main/system/notifications';
+import { AppSettings } from '../src/types/settings';
 
 jest.mock('../src/main/system/notifications');
 jest.mock('../src/main/store/settings');
@@ -130,7 +131,7 @@ describe('Posture Reminder', () => {
 
   describe('update', () => {
     it('should update interval when settings change', () => {
-      let settingsCallback: ((newSettings: any, oldSettings: any) => void) | null = null;
+      let settingsCallback: ((newSettings: AppSettings, oldSettings: AppSettings) => void) | null = null;
 
       mockGetSettings
         .mockReturnValueOnce({
@@ -175,7 +176,7 @@ describe('Posture Reminder', () => {
     });
 
     it('should stop when disabled via update', () => {
-      let settingsCallback: ((newSettings: any, oldSettings: any) => void) | null = null;
+      let settingsCallback: ((newSettings: AppSettings, oldSettings: AppSettings) => void) | null = null;
 
       mockGetSettings
         .mockReturnValueOnce({
@@ -220,7 +221,7 @@ describe('Posture Reminder', () => {
     });
 
     it('should start when enabled via update', () => {
-      let settingsCallback: ((newSettings: any, oldSettings: any) => void) | null = null;
+      let settingsCallback: ((newSettings: AppSettings, oldSettings: AppSettings) => void) | null = null;
 
       mockGetSettings
         .mockReturnValueOnce({

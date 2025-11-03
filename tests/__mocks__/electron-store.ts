@@ -26,8 +26,8 @@ class MockStore<T extends Record<string, any>> {
   }
 
   onDidChange<K extends keyof T>(
-    key: K,
-    callback: (newValue: T[K], oldValue: T[K]) => void
+    _key: K,
+    _callback: (newValue: T[K], oldValue: T[K]) => void
   ): () => void {
     return jest.fn();
   }

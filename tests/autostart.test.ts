@@ -11,6 +11,7 @@
 import * as autostart from '../src/main/system/autostart';
 import * as settingsStore from '../src/main/store/settings';
 import { app } from 'electron';
+import { AppSettings } from '../src/types/settings';
 
 jest.mock('electron', () => ({
   app: {
@@ -197,7 +198,7 @@ describe('Autostart Module', () => {
         launchItems: [],
       } as any);
 
-      let settingsCallback: (newSettings: any, oldSettings: any) => void = () => {};
+      let settingsCallback: (newSettings: AppSettings, oldSettings: AppSettings) => void = () => {};
       mockSubscribeToSettings.mockImplementation((callback) => {
         settingsCallback = callback;
         return jest.fn();
@@ -246,7 +247,7 @@ describe('Autostart Module', () => {
         launchItems: [],
       } as any);
 
-      let settingsCallback: (newSettings: any, oldSettings: any) => void = () => {};
+      let settingsCallback: (newSettings: AppSettings, oldSettings: AppSettings) => void = () => {};
       mockSubscribeToSettings.mockImplementation((callback) => {
         settingsCallback = callback;
         return jest.fn();
