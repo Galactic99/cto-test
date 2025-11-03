@@ -32,26 +32,35 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
+    console.log('[Main] 🚀 App starting up...');
+    
     // Register IPC handlers
     registerIpcHandlers();
+    console.log('[Main] IPC handlers registered');
 
     // Initialize autostart module
     autostart.initialize();
+    console.log('[Main] Autostart initialized');
 
     // Create the settings window (hidden by default)
     createSettingsWindow();
+    console.log('[Main] Settings window created');
 
     // Create system tray
     createSystemTray();
+    console.log('[Main] System tray created');
 
     // Start blink reminders if enabled
     blinkReminder.start();
+    console.log('[Main] Blink reminders started');
 
     // Start posture reminders if enabled
     postureReminder.start();
+    console.log('[Main] Posture reminders started');
 
     // Initialize idle detection
     idleDetection.initializeIdleDetection();
+    console.log('[Main] Idle detection initialized');
 
     // Check if --hidden flag is present
     const shouldStartHidden = process.argv.includes('--hidden');
@@ -59,7 +68,12 @@ if (!gotTheLock) {
     if (!shouldStartHidden) {
       // Show window on initial launch if not explicitly hidden
       showSettingsWindow();
+      console.log('[Main] Settings window shown');
+    } else {
+      console.log('[Main] Starting hidden (--hidden flag present)');
     }
+    
+    console.log('[Main] ✅ App startup complete');
 
     app.on('activate', () => {
       // On macOS, show window when dock icon is clicked

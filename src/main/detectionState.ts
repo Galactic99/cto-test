@@ -54,19 +54,47 @@ export async function startDetection(): Promise<void> {
     return;
   }
 
-  console.log('[DetectionState] Starting detection with features:', state.features);
+  const settings = getSettings();
+  console.log('[DetectionState] 🚀 Starting detection with configuration:', {
+    features: state.features,
+    fpsMode: state.fpsMode,
+    detectionEnabled: settings.detection.enabled,
+    privacyConsent: settings.detection.privacyConsentGiven,
+    postureBaselinePitch: settings.detection.postureBaselinePitch,
+  });
   
   try {
-    const window = sensorWindow.getSensorWindow();
+    let window = sensorWindow.getSensorWindow();
     if (!window || window.isDestroyed()) {
-      sensorWindow.createSensorWindow();
+      console.log('[DetectionState] Creating new sensor window');
+      window = sensorWindow.createSensorWindow();
+      
+      // Wait for the window to be ready before sending configuration
+      console.log('[DetectionState] Waiting for sensor window to be ready...');
+      await new Promise<void>((resolve) => {
+        if (window && !window.isDestroyed()) {
+          if (window.webContents.isLoading()) {
+            window.webContents.once('did-finish-load', () => {
+              console.log('[DetectionState] Sensor window loaded and ready');
+              // Add a small delay to ensure preload script is executed
+              setTimeout(resolve, 100);
+            });
+          } else {
+            console.log('[DetectionState] Sensor window already loaded');
+            setTimeout(resolve, 100);
+          }
+        } else {
+          resolve();
+        }
+      });
+    } else {
+      console.log('[DetectionState] Reusing existing sensor window');
     }
 
     state.isRunning = true;
     
-    const settings = getSettings();
-    
     // Send configuration to sensor window
+    console.log('[DetectionState] Sending configuration to sensor window');
     sensorWindow.sendToSensor('detection:configure', {
       features: state.features,
       fpsMode: state.fpsMode,
@@ -74,12 +102,13 @@ export async function startDetection(): Promise<void> {
     });
     
     // Start the camera
+    console.log('[DetectionState] Starting camera...');
     await sensorWindow.startCamera();
     
-    console.log('[DetectionState] Detection started successfully');
+    console.log('[DetectionState] ✅ Detection started successfully');
   } catch (error) {
     state.isRunning = false;
-    console.error('[DetectionState] Failed to start detection:', error);
+    console.error('[DetectionState] ❌ Failed to start detection:', error);
     throw error;
   }
 }

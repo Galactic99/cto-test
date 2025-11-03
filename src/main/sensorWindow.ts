@@ -5,9 +5,11 @@ let sensorWindow: BrowserWindow | null = null;
 
 export function createSensorWindow(): BrowserWindow {
   if (sensorWindow) {
+    console.log('[SensorWindow] Sensor window already exists, reusing');
     return sensorWindow;
   }
 
+  console.log('[SensorWindow] Creating new sensor window');
   sensorWindow = new BrowserWindow({
     width: 640,
     height: 480,
@@ -25,12 +27,19 @@ export function createSensorWindow(): BrowserWindow {
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
+    console.log('[SensorWindow] Loading sensor from dev server');
     sensorWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/sensor.html`);
   } else {
+    console.log('[SensorWindow] Loading sensor from file');
     sensorWindow.loadFile(path.join(__dirname, '../renderer/sensor.html'));
   }
 
+  sensorWindow.webContents.on('did-finish-load', () => {
+    console.log('[SensorWindow] ✅ Sensor window content loaded');
+  });
+
   sensorWindow.on('closed', () => {
+    console.log('[SensorWindow] Sensor window closed');
     sensorWindow = null;
   });
 
@@ -91,8 +100,9 @@ export function disableDetection(): Promise<void> {
 
 export function sendToSensor(channel: string, ...args: unknown[]): void {
   if (sensorWindow && !sensorWindow.isDestroyed()) {
+    console.log(`[SensorWindow] 📤 Sending message to sensor: ${channel}`, args.length > 0 ? args[0] : '');
     sensorWindow.webContents.send(channel, ...args);
   } else {
-    console.warn(`[SensorWindow] Cannot send to sensor: window not available (channel: ${channel})`);
+    console.warn(`[SensorWindow] ❌ Cannot send to sensor: window not available (channel: ${channel})`);
   }
 }
