@@ -1,5 +1,6 @@
 import { showNotification } from '../system/notifications';
 import { getSettings } from '../store/settings';
+import { pauseManager } from '../pauseManager';
 
 export interface BlinkPolicyConfig {
   thresholdBpm: number;
@@ -110,6 +111,12 @@ export class BlinkPolicy {
   }
 
   private shouldTriggerNotification(currentTime: number): boolean {
+    const pauseState = pauseManager.getState();
+    if (pauseState.isPaused) {
+      console.log('[BlinkPolicy] Notification suppressed due to global pause');
+      return false;
+    }
+
     if (this.state.lastNotificationTime === null) {
       return true;
     }
@@ -220,6 +227,12 @@ export class PosturePolicy {
   }
 
   private shouldTriggerNotification(currentTime: number): boolean {
+    const pauseState = pauseManager.getState();
+    if (pauseState.isPaused) {
+      console.log('[PosturePolicy] Notification suppressed due to global pause');
+      return false;
+    }
+
     if (this.state.lastNotificationTime === null) {
       return true;
     }

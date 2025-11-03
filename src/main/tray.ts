@@ -1,5 +1,6 @@
 import { Tray, Menu, nativeImage, app } from 'electron';
 import { showSettingsWindow } from './window';
+import { pauseManager } from './pauseManager';
 import * as path from 'path';
 
 let tray: Tray | null = null;
@@ -37,17 +38,11 @@ function createTrayIcon(): nativeImage {
   });
 }
 
-export function createSystemTray(): void {
-  if (tray) {
-    return;
-  }
+function buildTrayMenu(): Menu {
+  const pauseState = pauseManager.getState();
+  const isPaused = pauseState.isPaused;
 
-  const icon = createTrayIcon();
-  tray = new Tray(icon);
-
-  tray.setToolTip('Wellness Reminder');
-
-  const contextMenu = Menu.buildFromTemplate([
+  const menuTemplate: any[] = [
     {
       label: 'Open Settings',
       click: () => {
@@ -57,15 +52,73 @@ export function createSystemTray(): void {
     {
       type: 'separator',
     },
-    {
-      label: 'Quit',
-      click: () => {
-        app.quit();
-      },
-    },
-  ]);
+  ];
 
+  if (isPaused) {
+    const timeRemaining = pauseState.pausedUntil
+      ? Math.ceil((pauseState.pausedUntil - Date.now()) / 60000)
+      : 0;
+    menuTemplate.push({
+      label: `⏸ Paused (${timeRemaining} min remaining)`,
+      enabled: false,
+    });
+    menuTemplate.push({
+      label: 'Resume',
+      click: () => {
+        pauseManager.resume();
+      },
+    });
+  } else {
+    menuTemplate.push({
+      label: 'Pause All for 30 min',
+      click: () => {
+        pauseManager.pause(30);
+      },
+    });
+  }
+
+  menuTemplate.push({
+    type: 'separator',
+  });
+  menuTemplate.push({
+    label: 'Quit',
+    click: () => {
+      app.quit();
+    },
+  });
+
+  return Menu.buildFromTemplate(menuTemplate);
+}
+
+function updateTrayMenu(): void {
+  if (!tray) {
+    return;
+  }
+
+  const contextMenu = buildTrayMenu();
   tray.setContextMenu(contextMenu);
+
+  const pauseState = pauseManager.getState();
+  if (pauseState.isPaused) {
+    tray.setToolTip('Wellness Reminder - Paused');
+  } else {
+    tray.setToolTip('Wellness Reminder');
+  }
+}
+
+export function createSystemTray(): void {
+  if (tray) {
+    return;
+  }
+
+  const icon = createTrayIcon();
+  tray = new Tray(icon);
+
+  updateTrayMenu();
+
+  pauseManager.subscribe(() => {
+    updateTrayMenu();
+  });
 
   // Also show settings on click (for platforms that support it)
   tray.on('click', () => {

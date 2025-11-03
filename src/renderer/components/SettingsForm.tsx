@@ -7,6 +7,11 @@ import Calibration from './Calibration';
 const MIN_INTERVAL = 1;
 const MAX_INTERVAL = 240;
 
+interface PauseState {
+  isPaused: boolean;
+  pausedUntil: number | null;
+}
+
 function SettingsForm(): React.ReactElement {
   const [settings, setSettings] = useState<AppSettings>({
     blink: { enabled: true, interval: 20 },
@@ -18,11 +23,29 @@ function SettingsForm(): React.ReactElement {
   const [testingBlink, setTestingBlink] = useState<boolean>(false);
   const [testingPosture, setTestingPosture] = useState<boolean>(false);
   const [isDetectionRunning, setIsDetectionRunning] = useState<boolean>(false);
+  const [pauseState, setPauseState] = useState<PauseState>({
+    isPaused: false,
+    pausedUntil: null,
+  });
 
   useEffect(() => {
     loadSettings();
     checkDetectionStatus();
+    loadPauseState();
+
+    window.electronAPI.pause.onStateChanged((state) => {
+      setPauseState(state);
+    });
   }, []);
+
+  const loadPauseState = async (): Promise<void> => {
+    try {
+      const state = await window.electronAPI.pause.getState();
+      setPauseState(state);
+    } catch (error) {
+      console.error('Failed to load pause state:', error);
+    }
+  };
 
   const checkDetectionStatus = async (): Promise<void> => {
     try {
@@ -105,6 +128,15 @@ function SettingsForm(): React.ReactElement {
     }
   };
 
+  const handleResume = async (): Promise<void> => {
+    try {
+      await window.electronAPI.pause.resume();
+      console.log('Resumed from pause');
+    } catch (error) {
+      console.error('Failed to resume:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -112,6 +144,12 @@ function SettingsForm(): React.ReactElement {
       </div>
     );
   }
+
+  const getTimeRemaining = (): string => {
+    if (!pauseState.pausedUntil) return '';
+    const minutes = Math.ceil((pauseState.pausedUntil - Date.now()) / 60000);
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  };
 
   return (
     <div
@@ -123,6 +161,42 @@ function SettingsForm(): React.ReactElement {
       }}
     >
       <h1 style={{ marginBottom: '30px', color: '#333' }}>Wellness Reminder Settings</h1>
+
+      {pauseState.isPaused && (
+        <div
+          style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '4px',
+            padding: '15px',
+            marginBottom: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <strong style={{ color: '#856404' }}>⏸ All notifications paused</strong>
+            <div style={{ color: '#856404', fontSize: '14px', marginTop: '5px' }}>
+              Resuming in {getTimeRemaining()}
+            </div>
+          </div>
+          <button
+            onClick={handleResume}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            Resume Now
+          </button>
+        </div>
+      )}
 
       <div style={{ marginBottom: '30px' }}>
         <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#555' }}>
