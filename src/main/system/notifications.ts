@@ -21,7 +21,7 @@ export function showNotification(options: NotificationOptions): void {
     console.log('[Notification] Notification displayed successfully:', options.title);
   });
 
-  notification.on('failed', (event, error) => {
+  notification.on('failed', (_event, error) => {
     console.error('[Notification] Notification failed to display:', error);
   });
 
