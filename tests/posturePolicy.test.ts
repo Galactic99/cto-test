@@ -224,16 +224,21 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
 
-    it('should not reset cooldown if score returns to normal temporarily', () => {
+    it('should not reset cooldown if score returns to normal but improvement is within threshold', () => {
       const currentTime = Date.now();
 
       policy.evaluate(50, currentTime);
       policy.evaluate(50, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      policy.evaluate(70, currentTime + 60000);
+      // Score improves to 65 (improvement of 15, not greater than threshold of 15)
+      policy.evaluate(65, currentTime + 60000);
+      
+      // Score drops again before cooldown expires
       policy.evaluate(50, currentTime + 120000);
       policy.evaluate(50, currentTime + 150000);
+      
+      // Should not trigger another notification (cooldown still active)
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
 
