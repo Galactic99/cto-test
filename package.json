@@ -60,6 +60,7 @@
     "vite-plugin-electron-renderer": "^0.14.6"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
     "electron-store": "^11.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

@@ -3,6 +3,32 @@ import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import path from 'path';
+import fs from 'fs';
+
+function copyMediaPipeAssets() {
+  return {
+    name: 'copy-mediapipe-assets',
+    closeBundle() {
+      const srcDir = path.resolve(__dirname, 'node_modules/@mediapipe/tasks-vision/wasm');
+      const destDir = path.resolve(__dirname, 'dist-electron/renderer/wasm');
+
+      if (fs.existsSync(srcDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+        
+        const files = fs.readdirSync(srcDir);
+        files.forEach(file => {
+          if (file.endsWith('.wasm') || file.endsWith('.js') || file.endsWith('.data')) {
+            fs.copyFileSync(
+              path.join(srcDir, file),
+              path.join(destDir, file)
+            );
+            console.log(`Copied MediaPipe asset: ${file}`);
+          }
+        });
+      }
+    }
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -49,6 +75,7 @@ export default defineConfig({
       },
     ]),
     renderer(),
+    copyMediaPipeAssets(),
   ],
   root: '.',
   publicDir: 'public',
@@ -65,5 +92,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  optimizeDeps: {
+    exclude: ['@mediapipe/tasks-vision'],
   },
 });
