@@ -16,6 +16,15 @@ function PrivacyNote({ onConsent, onClose }: PrivacyNoteProps): React.ReactEleme
     onClose();
   };
 
+  const handleOpenCameraHelp = async (): Promise<void> => {
+    try {
+      const docPath = await window.electronAPI.docs.getCameraPermissionsPath();
+      await window.electronAPI.shell.openExternal(`file://${docPath}`);
+    } catch (error) {
+      console.error('[PrivacyNote] Failed to open camera permissions doc:', error);
+    }
+  };
+
   return (
     <div
       style={{
@@ -73,7 +82,7 @@ function PrivacyNote({ onConsent, onClose }: PrivacyNoteProps): React.ReactEleme
               You can disable camera features at any time in settings
             </li>
           </ul>
-          <p style={{ fontSize: '14px', color: '#666' }}>
+          <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
             For more information, please see our{' '}
             <a
               href="https://github.com/Galactic99/cto-test/blob/main/PRIVACY.md"
@@ -85,6 +94,21 @@ function PrivacyNote({ onConsent, onClose }: PrivacyNoteProps): React.ReactEleme
             </a>
             .
           </p>
+          <button
+            onClick={handleOpenCameraHelp}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '500',
+            }}
+          >
+            📷 Camera Permission Help
+          </button>
         </div>
 
         <div

@@ -239,6 +239,15 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
     }
   };
 
+  const handleOpenCameraHelp = async (): Promise<void> => {
+    try {
+      const docPath = await window.electronAPI.docs.getCameraPermissionsPath();
+      await window.electronAPI.shell.openExternal(`file://${docPath}`);
+    } catch (error) {
+      console.error('[DetectionSettings] Failed to open camera permissions doc:', error);
+    }
+  };
+
   const getErrorMessage = (): string => {
     if (detectionError) {
       return detectionError.message;
@@ -371,29 +380,52 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
             <div style={{ marginBottom: '10px' }}>
               <strong>⚠ {getErrorTitle()}:</strong> {getErrorMessage()}
             </div>
+            {detectionError?.type === 'camera_permission_denied' && (
+              <div style={{ marginBottom: '10px', fontSize: '13px', color: '#856404' }}>
+                Camera permissions may be disabled in Windows settings. Click the help button below for instructions on how to enable camera access.
+              </div>
+            )}
             {detectionError?.retryCount !== undefined && detectionError.retryCount > 0 && (
               <div style={{ marginBottom: '10px', fontSize: '12px', color: '#856404' }}>
                 Retry attempt {detectionError.retryCount} of 5
               </div>
             )}
-            {shouldShowRetry() && (
-              <button
-                onClick={handleRetryCamera}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#721c24',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                {detectionError?.retryCount && detectionError.retryCount > 0
-                  ? 'Retry Now'
-                  : 'Retry Camera Access'}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {shouldShowRetry() && (
+                <button
+                  onClick={handleRetryCamera}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: '#721c24',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  {detectionError?.retryCount && detectionError.retryCount > 0
+                    ? 'Retry Now'
+                    : 'Retry Camera Access'}
+                </button>
+              )}
+              {(detectionError?.type === 'camera_permission_denied' || detectionError?.type === 'camera_not_found' || cameraError) && (
+                <button
+                  onClick={handleOpenCameraHelp}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  📷 Camera Help
+                </button>
+              )}
+            </div>
             {detectionError && !detectionError.retryable && (
               <div style={{ marginTop: '10px', fontSize: '12px', fontStyle: 'italic' }}>
                 This error cannot be automatically resolved. Please check your camera settings and permissions.
