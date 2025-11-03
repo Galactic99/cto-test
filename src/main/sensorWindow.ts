@@ -10,15 +10,19 @@ export function createSensorWindow(): BrowserWindow {
   }
 
   console.log('[SensorWindow] Creating new sensor window');
+  
+  const preloadPath = path.join(__dirname, '../preload/sensor.js');
+  console.log(`[SensorWindow] Preload script path: ${preloadPath}`);
+  
   sensorWindow = new BrowserWindow({
     width: 640,
     height: 480,
-    show: false,
+    show: process.env.SENSOR_WINDOW_VISIBLE === 'true' || false,
     frame: false,
     skipTaskbar: true,
     backgroundColor: '#000000',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/sensor.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -26,16 +30,29 @@ export function createSensorWindow(): BrowserWindow {
     },
   });
 
+  const sensorUrl = process.env.VITE_DEV_SERVER_URL
+    ? `${process.env.VITE_DEV_SERVER_URL}/src/renderer/sensor/`
+    : path.join(__dirname, '../renderer/sensor.html');
+
   if (process.env.VITE_DEV_SERVER_URL) {
-    console.log('[SensorWindow] Loading sensor from dev server');
-    sensorWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/sensor.html`);
+    console.log(`[SensorWindow] Loading sensor from dev server: ${sensorUrl}`);
+    sensorWindow.loadURL(sensorUrl);
+    if (process.env.SENSOR_WINDOW_VISIBLE === 'true') {
+      sensorWindow.webContents.openDevTools();
+      console.log('[SensorWindow] DevTools opened for debugging');
+    }
   } else {
-    console.log('[SensorWindow] Loading sensor from file');
-    sensorWindow.loadFile(path.join(__dirname, '../renderer/sensor.html'));
+    console.log(`[SensorWindow] Loading sensor from file: ${sensorUrl}`);
+    sensorWindow.loadFile(sensorUrl);
   }
 
   sensorWindow.webContents.on('did-finish-load', () => {
     console.log('[SensorWindow] ✅ Sensor window content loaded');
+  });
+
+  sensorWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[SensorWindow] ❌ Failed to load sensor window: ${errorDescription} (code: ${errorCode})`);
+    console.error(`[SensorWindow] Attempted URL: ${validatedURL}`);
   });
 
   sensorWindow.on('closed', () => {
