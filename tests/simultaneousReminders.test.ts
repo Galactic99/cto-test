@@ -5,6 +5,12 @@ import * as notifications from '../src/main/system/notifications';
 import { AppSettings } from '../src/types/settings';
 
 jest.mock('../src/main/system/notifications');
+jest.mock('../src/main/system/NotificationManager', () => ({
+  getNotificationManager: jest.fn(() => ({
+    show: jest.fn(),
+    updateConfig: jest.fn(),
+  })),
+}));
 jest.mock('../src/main/store/settings');
 
 const mockShowNotification = notifications.showNotification as jest.MockedFunction<
@@ -16,6 +22,19 @@ const mockGetSettings = settingsStore.getSettings as jest.MockedFunction<
 const mockSubscribeToSettings = settingsStore.subscribeToSettings as jest.MockedFunction<
   typeof settingsStore.subscribeToSettings
 >;
+
+const createMockSettings = (overrides: Partial<AppSettings> = {}): AppSettings => ({
+  blink: { enabled: true, interval: 20 },
+  posture: { enabled: true, interval: 30 },
+  app: { startOnLogin: false },
+  detection: { enabled: false },
+  notifications: {
+    position: 'top-right',
+    timeout: 5000,
+    soundEnabled: true,
+  },
+  ...overrides,
+});
 
 describe('Simultaneous Blink and Posture Reminders', () => {
   beforeEach(() => {
@@ -32,12 +51,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
   });
 
   it('should run both reminders independently with different intervals', () => {
-    mockGetSettings.mockReturnValue({
-      blink: { enabled: true, interval: 20 },
-      posture: { enabled: true, interval: 30 },
-      app: { startOnLogin: false },
-      detection: { enabled: false },
-    });
+    mockGetSettings.mockReturnValue(createMockSettings());
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
     blinkReminder.start();
@@ -47,6 +61,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
     expect(mockShowNotification).toHaveBeenCalledWith({
       title: 'Time to blink',
       body: 'Look away for 20 seconds to rest your eyes',
+      type: 'blink',
     });
     expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
@@ -54,17 +69,13 @@ describe('Simultaneous Blink and Posture Reminders', () => {
     expect(mockShowNotification).toHaveBeenCalledWith({
       title: 'Check your posture',
       body: 'Sit upright, relax shoulders, feet flat',
+      type: 'posture',
     });
     expect(mockShowNotification).toHaveBeenCalledTimes(2);
   });
 
   it('should continue both reminders in subsequent cycles', () => {
-    mockGetSettings.mockReturnValue({
-      blink: { enabled: true, interval: 20 },
-      posture: { enabled: true, interval: 30 },
-      app: { startOnLogin: false },
-      detection: { enabled: false },
-    });
+    mockGetSettings.mockReturnValue(createMockSettings());
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
     blinkReminder.start();
@@ -84,12 +95,7 @@ describe('Simultaneous Blink and Posture Reminders', () => {
   });
 
   it('should allow stopping one reminder without affecting the other', () => {
-    mockGetSettings.mockReturnValue({
-      blink: { enabled: true, interval: 20 },
-      posture: { enabled: true, interval: 30 },
-      app: { startOnLogin: false },
-      detection: { enabled: false },
-    });
+    mockGetSettings.mockReturnValue(createMockSettings());
     mockSubscribeToSettings.mockReturnValue(jest.fn());
 
     blinkReminder.start();

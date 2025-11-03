@@ -35,11 +35,20 @@ export interface DetectionSettings {
   idleDetection?: IdleDetectionSettings;
 }
 
+export type NotificationPosition = 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left';
+
+export interface NotificationSettings {
+  position: NotificationPosition;
+  timeout: number; // milliseconds
+  soundEnabled: boolean;
+}
+
 export interface AppSettings {
   blink: BlinkSettings;
   posture: PostureSettings;
   app: AppPreferences;
   detection: DetectionSettings;
+  notifications: NotificationSettings;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -69,5 +78,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
       enabled: true,
       thresholdMinutes: 5,
     },
+  },
+  notifications: {
+    position: 'top-right',
+    timeout: 5000,
+    soundEnabled: true,
   },
 };

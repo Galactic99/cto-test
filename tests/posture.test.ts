@@ -4,6 +4,12 @@ import * as notifications from '../src/main/system/notifications';
 import { AppSettings } from '../src/types/settings';
 
 jest.mock('../src/main/system/notifications');
+jest.mock('../src/main/system/NotificationManager', () => ({
+  getNotificationManager: jest.fn(() => ({
+    show: jest.fn(),
+    updateConfig: jest.fn(),
+  })),
+}));
 jest.mock('../src/main/store/settings');
 
 const mockShowNotification = notifications.showNotification as jest.MockedFunction<
@@ -15,6 +21,19 @@ const mockGetSettings = settingsStore.getSettings as jest.MockedFunction<
 const mockSubscribeToSettings = settingsStore.subscribeToSettings as jest.MockedFunction<
   typeof settingsStore.subscribeToSettings
 >;
+
+const createMockSettings = (overrides: Partial<AppSettings> = {}): AppSettings => ({
+  blink: { enabled: true, interval: 20 },
+  posture: { enabled: true, interval: 30 },
+  app: { startOnLogin: false },
+  detection: { enabled: false },
+  notifications: {
+    position: 'top-right',
+    timeout: 5000,
+    soundEnabled: true,
+  },
+  ...overrides,
+});
 
 describe('Posture Reminder', () => {
   beforeEach(() => {
@@ -30,12 +49,7 @@ describe('Posture Reminder', () => {
 
   describe('start', () => {
     it('should start posture reminders when enabled', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
-        posture: { enabled: true, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      mockGetSettings.mockReturnValue(createMockSettings());
       mockSubscribeToSettings.mockReturnValue(jest.fn());
 
       postureReminder.start();
@@ -44,16 +58,14 @@ describe('Posture Reminder', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Check your posture',
         body: 'Sit upright, relax shoulders, feet flat',
+        type: 'posture',
       });
     });
 
     it('should not start when disabled', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
+      mockGetSettings.mockReturnValue(createMockSettings({
         posture: { enabled: false, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      }));
 
       postureReminder.start();
 
@@ -62,12 +74,9 @@ describe('Posture Reminder', () => {
     });
 
     it('should use configured interval', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
+      mockGetSettings.mockReturnValue(createMockSettings({
         posture: { enabled: true, interval: 45 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      }));
       mockSubscribeToSettings.mockReturnValue(jest.fn());
 
       postureReminder.start();
@@ -80,12 +89,7 @@ describe('Posture Reminder', () => {
     });
 
     it('should subscribe to settings changes', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
-        posture: { enabled: true, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      mockGetSettings.mockReturnValue(createMockSettings());
       mockSubscribeToSettings.mockReturnValue(jest.fn());
 
       postureReminder.start();
@@ -96,12 +100,7 @@ describe('Posture Reminder', () => {
 
   describe('stop', () => {
     it('should stop posture reminders', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
-        posture: { enabled: true, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      mockGetSettings.mockReturnValue(createMockSettings());
       const unsubscribe = jest.fn();
       mockSubscribeToSettings.mockReturnValue(unsubscribe);
 
@@ -113,12 +112,7 @@ describe('Posture Reminder', () => {
     });
 
     it('should call unsubscribe function', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
-        posture: { enabled: true, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      mockGetSettings.mockReturnValue(createMockSettings());
       const unsubscribe = jest.fn();
       mockSubscribeToSettings.mockReturnValue(unsubscribe);
 
@@ -273,18 +267,14 @@ describe('Posture Reminder', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Check your posture',
         body: 'Sit upright, relax shoulders, feet flat',
+        type: 'posture',
       });
     });
   });
 
   describe('Configuration', () => {
     it('should use default interval of 30 minutes', () => {
-      mockGetSettings.mockReturnValue({
-        blink: { enabled: true, interval: 20 },
-        posture: { enabled: true, interval: 30 },
-        app: { startOnLogin: false },
-        detection: { enabled: false },
-      });
+      mockGetSettings.mockReturnValue(createMockSettings());
       mockSubscribeToSettings.mockReturnValue(jest.fn());
 
       postureReminder.start();
@@ -299,6 +289,7 @@ describe('Posture Reminder', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Check your posture',
         body: 'Sit upright, relax shoulders, feet flat',
+        type: 'posture',
       });
     });
   });

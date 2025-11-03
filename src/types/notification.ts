@@ -10,6 +10,7 @@ export interface NotificationPayload {
   icon?: string;
   timeout?: number; // milliseconds, default 5000
   position?: NotificationPosition; // default 'top-right'
+  soundEnabled?: boolean; // if undefined, defaults to config/settings
 }
 
 export interface NotificationConfig {

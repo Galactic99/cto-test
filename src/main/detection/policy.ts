@@ -177,6 +177,7 @@ export class BlinkPolicy {
     showNotification({
       title: 'Low blink rate detected',
       body: `You're blinking ${Math.round(blinksPerMinute)} times per minute. Remember to blink regularly to keep your eyes healthy.`,
+      type: 'blink',
     });
   }
 }
@@ -333,6 +334,7 @@ export class PosturePolicy {
     showNotification({
       title: 'Poor posture detected',
       body: `Your posture score is ${Math.round(postureScore)}/100. Sit upright, relax your shoulders, and keep your feet flat.`,
+      type: 'posture',
     });
   }
 }
