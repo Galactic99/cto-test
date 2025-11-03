@@ -1,11 +1,10 @@
-import { Tray, Menu, nativeImage, app } from 'electron';
+import { Tray, Menu, nativeImage, app, NativeImage } from 'electron';
 import { showSettingsWindow } from './window';
 import { pauseManager } from './pauseManager';
-import * as path from 'path';
 
 let tray: Tray | null = null;
 
-function createTrayIcon(): nativeImage {
+function createTrayIcon(): NativeImage {
   // Create a simple placeholder icon programmatically
   // 16x16 square with a simple pattern
   const size = 16;
