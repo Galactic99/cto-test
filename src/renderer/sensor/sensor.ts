@@ -14,6 +14,7 @@ import { DetectionFeatures, FpsMode } from '../../types/settings';
 import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blink';
 import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggregators';
 import { PostureDetector, createPostureDetector, PostureMetrics } from './metrics/posture';
+import { DetectionLoop, createDetectionLoop } from './loop';
 
 declare global {
   interface Window {
@@ -54,29 +55,15 @@ let blinkRateAggregator: BlinkRateAggregator | null = null;
 let postureDetector: PostureDetector | null = null;
 let detectionConfig: DetectionConfig | null = null;
 let detectionLoopId: number | null = null;
-let frameCount = 0;
-let lastFpsLogTime = 0;
-let lastMetricsReportTime = 0;
+let detectionLoop: DetectionLoop | null = null;
 let warmupFramesProcessed = 0;
 const WARMUP_FRAMES = 5;
 const METRICS_REPORT_INTERVAL = 5000;
+let lastMetricsReportTime = 0;
 let isCalibrating = false;
 let calibrationSamples: number[] = [];
 const CALIBRATION_DURATION = 5000;
 let calibrationStartTime = 0;
-
-function getFpsInterval(fpsMode: FpsMode): number {
-  switch (fpsMode) {
-    case 'low':
-      return 1000 / 10;
-    case 'medium':
-      return 1000 / 15;
-    case 'high':
-      return 1000 / 30;
-    default:
-      return 1000 / 15;
-  }
-}
 
 function runDetectionLoop(): void {
   if (!videoElement || !detectionConfig) {
@@ -87,140 +74,149 @@ function runDetectionLoop(): void {
     return;
   }
 
-  const fpsInterval = getFpsInterval(detectionConfig.fpsMode);
-  let lastFrameTime = performance.now();
+  if (!detectionLoop) {
+    detectionLoop = createDetectionLoop({
+      fpsMode: detectionConfig.fpsMode,
+      skipFrames: 1,
+    });
+    detectionLoop.resetMetrics();
+    console.log('[Sensor] Detection loop controller initialized');
+  }
 
   function detectFrame(): void {
     const now = performance.now();
-    const elapsed = now - lastFrameTime;
 
-    if (elapsed >= fpsInterval) {
-      lastFrameTime = now - (elapsed % fpsInterval);
+    if (!detectionLoop || !videoElement || !detectionConfig) {
+      return;
+    }
 
-      if (videoElement) {
-        let hasResult = false;
+    if (!detectionLoop.shouldProcessFrame(now)) {
+      detectionLoopId = requestAnimationFrame(detectFrame);
+      return;
+    }
 
-        if (detectionConfig?.features.blink && faceLandmarker) {
-          const result = faceLandmarker.detect(videoElement);
+    const processingStartTime = performance.now();
+    let hasResult = false;
 
-          if (result) {
-            hasResult = true;
+    if (detectionConfig.features.blink && faceLandmarker) {
+      const result = faceLandmarker.detect(videoElement);
 
-            if (warmupFramesProcessed < WARMUP_FRAMES) {
-              warmupFramesProcessed++;
-              if (warmupFramesProcessed === WARMUP_FRAMES) {
-                console.log('[Sensor] Warmup complete, face model ready for detection');
-              }
-            }
+      if (result) {
+        hasResult = true;
 
-            if (blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
-              const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-              blinkDetector.processFrame(result, now);
-              const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
-
-              if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
-                blinkRateAggregator.addEvent(now);
-              }
-            }
+        if (warmupFramesProcessed < WARMUP_FRAMES) {
+          warmupFramesProcessed++;
+          if (warmupFramesProcessed === WARMUP_FRAMES) {
+            console.log('[Sensor] Warmup complete, face model ready for detection');
           }
         }
 
-        if (detectionConfig?.features.posture && poseLandmarker) {
-          const result = poseLandmarker.detect(videoElement);
+        if (blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+          const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
+          blinkDetector.processFrame(result, now);
+          const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
 
-          if (result) {
-            hasResult = true;
+          if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
+            blinkRateAggregator.addEvent(now);
+          }
+        }
+      }
+    }
 
-            if (warmupFramesProcessed < WARMUP_FRAMES) {
-              warmupFramesProcessed++;
-              if (warmupFramesProcessed === WARMUP_FRAMES) {
-                console.log('[Sensor] Warmup complete, pose model ready for detection');
-              }
-            }
+    if (detectionConfig.features.posture && poseLandmarker) {
+      const result = poseLandmarker.detect(videoElement);
 
-            if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
-              postureDetector.processFrame(result, now);
+      if (result) {
+        hasResult = true;
 
-              if (isCalibrating) {
-                const metrics = postureDetector.getMetrics();
-                calibrationSamples.push(metrics.headPitchAngle);
-
-                if (now - calibrationStartTime >= CALIBRATION_DURATION) {
-                  const averageBaseline =
-                    calibrationSamples.reduce((sum, val) => sum + val, 0) /
-                    calibrationSamples.length;
-                  console.log(
-                    `[Sensor] Calibration complete: baseline=${averageBaseline.toFixed(2)}° (${calibrationSamples.length} samples)`
-                  );
-                  window.sensorAPI.sendCalibrationResult(averageBaseline);
-                  isCalibrating = false;
-                  calibrationSamples = [];
-                }
-              }
-            }
+        if (warmupFramesProcessed < WARMUP_FRAMES) {
+          warmupFramesProcessed++;
+          if (warmupFramesProcessed === WARMUP_FRAMES) {
+            console.log('[Sensor] Warmup complete, pose model ready for detection');
           }
         }
 
-        if (hasResult) {
-          frameCount++;
+        if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+          postureDetector.processFrame(result, now);
 
-          if (now - lastFpsLogTime >= 5000) {
-            const fps = (frameCount / 5).toFixed(2);
-            const targetFps = 1000 / fpsInterval;
-            const cpuUsage = ((parseFloat(fps) / targetFps) * 5).toFixed(2);
+          if (isCalibrating) {
+            const metrics = postureDetector.getMetrics();
+            calibrationSamples.push(metrics.headPitchAngle);
 
-            console.log(
-              `[Sensor] Performance: ${fps} FPS (target: ${targetFps}), ~${cpuUsage}% estimated CPU usage`
-            );
-
-            if (detectionConfig?.features.blink && blinkDetector && blinkRateAggregator) {
-              const metrics = blinkDetector.getMetrics(now);
-              const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
+            if (now - calibrationStartTime >= CALIBRATION_DURATION) {
+              const averageBaseline =
+                calibrationSamples.reduce((sum, val) => sum + val, 0) /
+                calibrationSamples.length;
               console.log(
-                `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, Instant BPM=${metrics.blinksPerMinute}, Aggregated BPM=${aggregatedMetrics.blinksPerMinute.toFixed(2)}, EAR=${metrics.averageEAR.toFixed(3)}`
+                `[Sensor] Calibration complete: baseline=${averageBaseline.toFixed(2)}° (${calibrationSamples.length} samples)`
               );
+              window.sensorAPI.sendCalibrationResult(averageBaseline);
+              isCalibrating = false;
+              calibrationSamples = [];
             }
-
-            if (detectionConfig?.features.posture && postureDetector) {
-              const metrics = postureDetector.getMetrics();
-              console.log(
-                `[Sensor] Posture Metrics: Score=${metrics.postureScore.toFixed(1)}, Head Pitch=${metrics.headPitchAngle.toFixed(1)}°, Shoulder Roll=${metrics.shoulderRollAngle.toFixed(2)}`
-              );
-            }
-
-            frameCount = 0;
-            lastFpsLogTime = now;
-          }
-
-          if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
-            const metricsUpdate: any = {};
-
-            if (detectionConfig?.features.blink && blinkRateAggregator) {
-              const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
-              metricsUpdate.blink = {
-                timestamp: now,
-                blinkCount: aggregatedMetrics.eventCount,
-                blinkRate: aggregatedMetrics.blinksPerMinute,
-              };
-            }
-
-            if (detectionConfig?.features.posture && postureDetector) {
-              const postureMetrics = postureDetector.getMetrics();
-              metricsUpdate.posture = {
-                timestamp: now,
-                postureScore: postureMetrics.postureScore,
-                headPitchAngle: postureMetrics.headPitchAngle,
-                shoulderRollAngle: postureMetrics.shoulderRollAngle,
-              };
-            }
-
-            if (Object.keys(metricsUpdate).length > 0) {
-              window.sensorAPI.sendMetricsUpdate(metricsUpdate);
-            }
-
-            lastMetricsReportTime = now;
           }
         }
+      }
+    }
+
+    if (hasResult) {
+      const processingEndTime = performance.now();
+      detectionLoop.recordProcessingTime(processingStartTime, processingEndTime);
+
+      if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
+        const metricsUpdate: any = {};
+        const loopMetrics = detectionLoop.getMetrics(now);
+
+        console.log(
+          `[Sensor] Performance: ${loopMetrics.currentFps.toFixed(2)} FPS (target: ${loopMetrics.targetFps}), CPU: ${loopMetrics.cpuUsagePercent.toFixed(2)}%, Processed: ${loopMetrics.framesProcessed}, Skipped: ${loopMetrics.framesSkipped}`
+        );
+
+        if (loopMetrics.isThrottled) {
+          console.warn(`[Sensor] Throttling active: ${loopMetrics.throttleReason}`);
+        }
+
+        if (detectionConfig.features.blink && blinkDetector && blinkRateAggregator) {
+          const metrics = blinkDetector.getMetrics(now);
+          const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
+          console.log(
+            `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, Instant BPM=${metrics.blinksPerMinute}, Aggregated BPM=${aggregatedMetrics.blinksPerMinute.toFixed(2)}, EAR=${metrics.averageEAR.toFixed(3)}`
+          );
+
+          metricsUpdate.blink = {
+            timestamp: now,
+            blinkCount: aggregatedMetrics.eventCount,
+            blinkRate: aggregatedMetrics.blinksPerMinute,
+          };
+        }
+
+        if (detectionConfig.features.posture && postureDetector) {
+          const postureMetrics = postureDetector.getMetrics();
+          console.log(
+            `[Sensor] Posture Metrics: Score=${postureMetrics.postureScore.toFixed(1)}, Head Pitch=${postureMetrics.headPitchAngle.toFixed(1)}°, Shoulder Roll=${postureMetrics.shoulderRollAngle.toFixed(2)}`
+          );
+
+          metricsUpdate.posture = {
+            timestamp: now,
+            postureScore: postureMetrics.postureScore,
+            headPitchAngle: postureMetrics.headPitchAngle,
+            shoulderRollAngle: postureMetrics.shoulderRollAngle,
+          };
+        }
+
+        metricsUpdate.loop = {
+          currentFps: loopMetrics.currentFps,
+          targetFps: loopMetrics.targetFps,
+          cpuUsage: loopMetrics.cpuUsagePercent,
+          isThrottled: loopMetrics.isThrottled,
+          throttleReason: loopMetrics.throttleReason,
+        };
+
+        if (Object.keys(metricsUpdate).length > 0) {
+          window.sensorAPI.sendMetricsUpdate(metricsUpdate);
+        }
+
+        detectionLoop.resetMetrics();
+        lastMetricsReportTime = now;
       }
     }
 
@@ -234,11 +230,15 @@ function stopDetectionLoop(): void {
   if (detectionLoopId !== null) {
     cancelAnimationFrame(detectionLoopId);
     detectionLoopId = null;
-    frameCount = 0;
-    lastFpsLogTime = 0;
     lastMetricsReportTime = 0;
     warmupFramesProcessed = 0;
     console.log('[Sensor] Detection loop stopped');
+  }
+
+  if (detectionLoop) {
+    detectionLoop.reset();
+    detectionLoop = null;
+    console.log('[Sensor] Detection loop controller cleaned up');
   }
 }
 
@@ -455,6 +455,11 @@ window.sensorAPI.onStopCamera(() => {
 window.sensorAPI.onDetectionConfigure((config) => {
   console.log('[Sensor] Received detection configuration:', config);
   detectionConfig = config;
+
+  if (detectionLoop) {
+    detectionLoop.updateConfig({ fpsMode: config.fpsMode });
+    console.log('[Sensor] Updated detection loop FPS mode:', config.fpsMode);
+  }
 
   if (blinkDetector && config.features.blink) {
     console.log('[Sensor] Resetting blink detector for new configuration');

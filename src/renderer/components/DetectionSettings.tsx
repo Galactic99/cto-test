@@ -8,9 +8,9 @@ interface DetectionSettingsProps {
 }
 
 const FPS_OPTIONS = [
-  { value: 'low' as FpsMode, label: 'Battery saver (6 FPS)', fps: 6 },
-  { value: 'medium' as FpsMode, label: 'Balanced (10 FPS)', fps: 10 },
-  { value: 'high' as FpsMode, label: 'Accurate (15 FPS)', fps: 15 },
+  { value: 'battery' as FpsMode, label: 'Battery saver (6 FPS)', fps: 6 },
+  { value: 'balanced' as FpsMode, label: 'Balanced (10 FPS)', fps: 10 },
+  { value: 'accurate' as FpsMode, label: 'Accurate (15 FPS)', fps: 15 },
 ];
 
 function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.ReactElement {
@@ -20,7 +20,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
       blink: true,
       posture: true,
     },
-    fpsMode: 'medium',
+    fpsMode: 'balanced',
     privacyConsentGiven: false,
   });
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus | null>(null);
@@ -54,7 +54,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
       const detection = settings.detection || {
         enabled: false,
         features: { blink: true, posture: true },
-        fpsMode: 'medium' as FpsMode,
+        fpsMode: 'balanced' as FpsMode,
         privacyConsentGiven: false,
       };
       
@@ -63,7 +63,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
         detection.features = { blink: true, posture: true };
       }
       if (!detection.fpsMode) {
-        detection.fpsMode = 'medium';
+        detection.fpsMode = 'balanced';
       }
       if (detection.privacyConsentGiven === undefined) {
         detection.privacyConsentGiven = false;
@@ -478,7 +478,7 @@ function DetectionSettings({ onSettingsChange }: DetectionSettingsProps): React.
           Processing mode:
         </label>
         <select
-          value={detectionSettings.fpsMode || 'medium'}
+          value={detectionSettings.fpsMode || 'balanced'}
           onChange={handleFpsModeChange}
           disabled={!detectionSettings.enabled || updating}
           style={{

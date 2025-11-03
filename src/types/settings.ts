@@ -12,7 +12,7 @@ export interface AppPreferences {
   startOnLogin: boolean;
 }
 
-export type FpsMode = 'low' | 'medium' | 'high';
+export type FpsMode = 'battery' | 'balanced' | 'accurate';
 
 export interface DetectionFeatures {
   blink: boolean;
@@ -54,7 +54,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       blink: true,
       posture: true,
     },
-    fpsMode: 'medium',
+    fpsMode: 'balanced',
     privacyConsentGiven: false,
     postureScoreThreshold: 60,
     postureBaselinePitch: undefined,

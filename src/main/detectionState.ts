@@ -18,7 +18,7 @@ const defaultFeatures: DetectionFeatures = {
 let state: DetectionState = {
   isRunning: false,
   features: { ...defaultFeatures },
-  fpsMode: 'medium',
+  fpsMode: 'balanced',
   metrics: {},
 };
 
@@ -134,7 +134,7 @@ export function resetState(): void {
   state = {
     isRunning: false,
     features: { ...defaultFeatures },
-    fpsMode: 'medium',
+    fpsMode: 'balanced',
     metrics: {},
   };
 }
