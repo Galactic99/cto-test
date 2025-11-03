@@ -6,6 +6,7 @@ import {
 } from './models/faceLandmarker';
 import { DetectionFeatures, FpsMode } from '../../types/settings';
 import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blink';
+import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggregators';
 
 declare global {
   interface Window {
@@ -18,6 +19,7 @@ declare global {
       onDetectionConfigure: (
         callback: (config: { features: DetectionFeatures; fpsMode: FpsMode }) => void
       ) => void;
+      sendMetricsUpdate: (metrics: any) => void;
     };
     getBlinkMetrics?: () => BlinkMetrics | null;
   }
@@ -32,12 +34,15 @@ let mediaStream: MediaStream | null = null;
 let videoElement: HTMLVideoElement | null = null;
 let faceLandmarker: FaceLandmarkerInstance | null = null;
 let blinkDetector: BlinkDetector | null = null;
+let blinkRateAggregator: BlinkRateAggregator | null = null;
 let detectionConfig: DetectionConfig | null = null;
 let detectionLoopId: number | null = null;
 let frameCount = 0;
 let lastFpsLogTime = 0;
+let lastMetricsReportTime = 0;
 let warmupFramesProcessed = 0;
 const WARMUP_FRAMES = 5;
+const METRICS_REPORT_INTERVAL = 5000;
 
 function getFpsInterval(fpsMode: FpsMode): number {
   switch (fpsMode) {
@@ -81,7 +86,13 @@ function runDetectionLoop(): void {
           }
 
           if (detectionConfig?.features.blink && blinkDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+            const previousBlinkCount = blinkDetector.getMetrics(now).blinkCount;
             blinkDetector.processFrame(result, now);
+            const currentBlinkCount = blinkDetector.getMetrics(now).blinkCount;
+            
+            if (currentBlinkCount > previousBlinkCount && blinkRateAggregator) {
+              blinkRateAggregator.addEvent(now);
+            }
           }
 
           if (now - lastFpsLogTime >= 5000) {
@@ -93,15 +104,30 @@ function runDetectionLoop(): void {
               `[Sensor] Performance: ${fps} FPS (target: ${targetFps}), ~${cpuUsage}% estimated CPU usage`
             );
 
-            if (detectionConfig?.features.blink && blinkDetector) {
+            if (detectionConfig?.features.blink && blinkDetector && blinkRateAggregator) {
               const metrics = blinkDetector.getMetrics(now);
+              const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
               console.log(
-                `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, BPM=${metrics.blinksPerMinute}, EAR=${metrics.averageEAR.toFixed(3)}`
+                `[Sensor] Blink Metrics: Count=${metrics.blinkCount}, Instant BPM=${metrics.blinksPerMinute}, Aggregated BPM=${aggregatedMetrics.blinksPerMinute.toFixed(2)}, EAR=${metrics.averageEAR.toFixed(3)}`
               );
             }
 
             frameCount = 0;
             lastFpsLogTime = now;
+          }
+
+          if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
+            if (detectionConfig?.features.blink && blinkRateAggregator) {
+              const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
+              window.sensorAPI.sendMetricsUpdate({
+                blink: {
+                  timestamp: now,
+                  blinkCount: aggregatedMetrics.eventCount,
+                  blinkRate: aggregatedMetrics.blinksPerMinute,
+                },
+              });
+            }
+            lastMetricsReportTime = now;
           }
         }
       }
@@ -119,6 +145,7 @@ function stopDetectionLoop(): void {
     detectionLoopId = null;
     frameCount = 0;
     lastFpsLogTime = 0;
+    lastMetricsReportTime = 0;
     warmupFramesProcessed = 0;
     console.log('[Sensor] Detection loop stopped');
   }
@@ -159,6 +186,11 @@ async function initializeModel(): Promise<void> {
     blinkDetector = createBlinkDetector();
     console.log('[Sensor] Blink detector initialized');
   }
+
+  if (!blinkRateAggregator) {
+    blinkRateAggregator = createBlinkRateAggregator(3);
+    console.log('[Sensor] Blink rate aggregator initialized (3-minute window)');
+  }
 }
 
 function cleanupModel(): void {
@@ -171,6 +203,12 @@ function cleanupModel(): void {
     blinkDetector.reset();
     blinkDetector = null;
     console.log('[Sensor] Blink detector cleaned up');
+  }
+
+  if (blinkRateAggregator) {
+    blinkRateAggregator.reset();
+    blinkRateAggregator = null;
+    console.log('[Sensor] Blink rate aggregator cleaned up');
   }
 
   closeFaceLandmarker();
@@ -274,6 +312,11 @@ window.sensorAPI.onDetectionConfigure((config) => {
   if (blinkDetector && config.features.blink) {
     console.log('[Sensor] Resetting blink detector for new configuration');
     blinkDetector.reset();
+  }
+
+  if (blinkRateAggregator && config.features.blink) {
+    console.log('[Sensor] Resetting blink rate aggregator for new configuration');
+    blinkRateAggregator.reset();
   }
 
   if (faceLandmarker && videoElement && mediaStream) {
