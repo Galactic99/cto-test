@@ -8,9 +8,10 @@ import * as autostart from './system/autostart';
 import * as sensorWindow from './sensorWindow';
 import { getSettingsWindow } from './window';
 import * as detectionState from './detectionState';
-import { createBlinkPolicy } from './detection/policy';
+import { createBlinkPolicy, createPosturePolicy } from './detection/policy';
 
 let blinkPolicy = createBlinkPolicy();
+let posturePolicy = createPosturePolicy();
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
@@ -104,7 +105,8 @@ export function registerIpcHandlers(): void {
     try {
       await detectionState.startDetection();
       blinkPolicy.reset();
-      console.log('[IPC] Blink policy reset for new detection session');
+      posturePolicy.reset();
+      console.log('[IPC] Blink and posture policies reset for new detection session');
     } catch (error) {
       console.error('[IPC] Failed to start detection:', error);
       throw error;
@@ -154,6 +156,11 @@ export function registerIpcHandlers(): void {
     // Evaluate blink policy if blink metrics are present
     if (metrics.blink && detectionState.isDetectionRunning()) {
       blinkPolicy.evaluate(metrics.blink.blinkRate, metrics.blink.timestamp);
+    }
+    
+    // Evaluate posture policy if posture metrics are present
+    if (metrics.posture && metrics.posture.postureScore !== undefined && detectionState.isDetectionRunning()) {
+      posturePolicy.evaluate(metrics.posture.postureScore, metrics.posture.timestamp);
     }
     
     // Forward metrics to settings window if open

@@ -9,8 +9,11 @@ export interface BlinkMetrics {
 
 export interface PostureMetrics {
   timestamp: number;
-  goodPosturePercent: number;
-  badPostureCount: number;
+  postureScore?: number;
+  headPitchAngle?: number;
+  shoulderRollAngle?: number;
+  goodPosturePercent?: number;
+  badPostureCount?: number;
   lastPostureCheckTime?: number;
   currentPosture?: 'good' | 'bad' | 'unknown';
 }
