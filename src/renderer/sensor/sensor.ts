@@ -242,7 +242,16 @@ function runDetectionLoop(): void {
           }
 
           if (Object.keys(metricsUpdate).length > 0) {
+            console.log('[Sensor] 📤 Sending metrics update via IPC:', {
+              timestamp: new Date().toISOString(),
+              hasBlink: !!metricsUpdate.blink,
+              hasPosture: !!metricsUpdate.posture,
+              blinkRate: metricsUpdate.blink?.blinkRate,
+              postureScore: metricsUpdate.posture?.postureScore,
+            });
             window.sensorAPI.sendMetricsUpdate(metricsUpdate);
+          } else {
+            console.log('[Sensor] ⚠️ No metrics to send in this update cycle');
           }
 
           detectionLoop.resetMetrics();
@@ -429,7 +438,7 @@ function cleanupModel(): void {
 
 async function startCamera(): Promise<void> {
   try {
-    console.log('[Sensor] Starting camera...');
+    console.log('[Sensor] 🎥 Starting camera...');
     
     if (!retryManager) {
       retryManager = new RetryManager();
@@ -446,6 +455,7 @@ async function startCamera(): Promise<void> {
       throw new Error('getUserMedia is not supported in this browser');
     }
 
+    console.log('[Sensor] Requesting camera access...');
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 640 },
@@ -455,13 +465,24 @@ async function startCamera(): Promise<void> {
     });
 
     videoElement.srcObject = mediaStream;
-    console.log('[Sensor] Camera started successfully');
+    console.log('[Sensor] ✅ Camera started successfully, stream active:', {
+      trackCount: mediaStream.getTracks().length,
+      videoTrackActive: mediaStream.getVideoTracks()[0]?.readyState === 'live',
+    });
 
+    console.log('[Sensor] Initializing detection models...');
     await initializeModel();
+    console.log('[Sensor] ✅ Detection models initialized');
 
     if (detectionConfig) {
-      console.log('[Sensor] Starting detection loop with config:', detectionConfig);
+      console.log('[Sensor] 🚀 Starting detection loop with config:', {
+        features: detectionConfig.features,
+        fpsMode: detectionConfig.fpsMode,
+      });
       runDetectionLoop();
+      console.log('[Sensor] ✅ Detection loop started');
+    } else {
+      console.warn('[Sensor] ⚠️ No detection config available, detection loop NOT started');
     }
 
     detectionErrorCount = 0;
@@ -470,6 +491,7 @@ async function startCamera(): Promise<void> {
     }
 
     window.sensorAPI.notifyCameraStarted();
+    console.log('[Sensor] ✅ Camera startup complete, notified main process');
   } catch (error) {
     console.error('[Sensor] Error starting camera:', error);
     let errorMessage = 'Unknown error';
@@ -540,40 +562,51 @@ window.sensorAPI.onStopCamera(() => {
 });
 
 window.sensorAPI.onDetectionConfigure((config) => {
-  console.log('[Sensor] Received detection configuration:', config);
+  console.log('[Sensor] ⚙️ Received detection configuration:', {
+    features: config.features,
+    fpsMode: config.fpsMode,
+    postureBaselinePitch: config.postureBaselinePitch,
+    timestamp: new Date().toISOString(),
+  });
   detectionConfig = config;
 
   if (detectionLoop) {
     detectionLoop.updateConfig({ fpsMode: config.fpsMode });
-    console.log('[Sensor] Updated detection loop FPS mode:', config.fpsMode);
+    console.log('[Sensor] ✅ Updated detection loop FPS mode:', config.fpsMode);
   }
 
   if (blinkDetector && config.features.blink) {
-    console.log('[Sensor] Resetting blink detector for new configuration');
+    console.log('[Sensor] 🔄 Resetting blink detector for new configuration');
     blinkDetector.reset();
   }
 
   if (blinkRateAggregator && config.features.blink) {
-    console.log('[Sensor] Resetting blink rate aggregator for new configuration');
+    console.log('[Sensor] 🔄 Resetting blink rate aggregator for new configuration');
     blinkRateAggregator.reset();
   }
 
   if (postureDetector && config.features.posture) {
-    console.log('[Sensor] Resetting posture detector for new configuration');
+    console.log('[Sensor] 🔄 Resetting posture detector for new configuration');
     postureDetector.reset();
     
     if (config.postureBaselinePitch !== undefined) {
       postureDetector.setBaseline(config.postureBaselinePitch);
       console.log(
-        `[Sensor] Applied baseline pitch: ${config.postureBaselinePitch.toFixed(2)}°`
+        `[Sensor] ✅ Applied baseline pitch: ${config.postureBaselinePitch.toFixed(2)}°`
       );
     }
   }
 
   if (faceLandmarker && videoElement && mediaStream) {
     stopDetectionLoop();
-    console.log('[Sensor] Restarting detection loop with new config');
+    console.log('[Sensor] 🔄 Restarting detection loop with new config');
     runDetectionLoop();
+  } else {
+    console.log('[Sensor] ⚠️ Cannot restart detection loop:', {
+      hasFaceLandmarker: !!faceLandmarker,
+      hasVideoElement: !!videoElement,
+      hasMediaStream: !!mediaStream,
+    });
   }
 });
 

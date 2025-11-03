@@ -18,6 +18,20 @@ let blinkPolicy = createBlinkPolicy();
 let posturePolicy = createPosturePolicy();
 
 export function registerIpcHandlers(): void {
+  // Log initial settings state
+  const initialSettings = getSettings();
+  console.log('[IPC] 📋 Initial settings at startup:', {
+    detection: {
+      enabled: initialSettings.detection.enabled,
+      privacyConsent: initialSettings.detection.privacyConsentGiven,
+      features: initialSettings.detection.features,
+      fpsMode: initialSettings.detection.fpsMode,
+      postureBaseline: initialSettings.detection.postureBaselinePitch,
+    },
+    blinkReminders: initialSettings.blink,
+    postureReminders: initialSettings.posture,
+  });
+  
   ipcMain.handle('settings:get', async (): Promise<AppSettings> => {
     const settings = getSettings();
     console.log('[IPC] Settings get requested:', settings);
@@ -122,14 +136,18 @@ export function registerIpcHandlers(): void {
 
   // Detection lifecycle handlers
   ipcMain.handle('detection:start', async (): Promise<void> => {
-    console.log('[IPC] Detection start requested');
+    console.log('[IPC] 🚀 Detection start requested');
     try {
       await detectionState.startDetection();
       blinkPolicy.reset();
       posturePolicy.reset();
-      console.log('[IPC] Blink and posture policies reset for new detection session');
+      console.log('[IPC] ✅ Blink and posture policies reset for new detection session');
+      console.log('[IPC] 📋 Current policy configurations:', {
+        blinkPolicy: blinkPolicy.getConfig(),
+        posturePolicy: posturePolicy.getConfig(),
+      });
     } catch (error) {
-      console.error('[IPC] Failed to start detection:', error);
+      console.error('[IPC] ❌ Failed to start detection:', error);
       throw error;
     }
   });
@@ -211,17 +229,50 @@ export function registerIpcHandlers(): void {
 
   // Handler for metrics updates from sensor window
   ipcMain.on('sensor:metrics-update', (_event, metrics: DetectionMetrics) => {
-    console.log('[IPC] Metrics update from sensor window:', metrics);
+    console.log('[IPC] 📊 Metrics update from sensor window:', {
+      timestamp: new Date().toISOString(),
+      hasBlink: !!metrics.blink,
+      hasPosture: !!metrics.posture,
+      blinkRate: metrics.blink?.blinkRate,
+      postureScore: metrics.posture?.postureScore,
+      isDetectionRunning: detectionState.isDetectionRunning(),
+    });
+    
     detectionState.updateMetrics(metrics);
     
     // Evaluate blink policy if blink metrics are present
-    if (metrics.blink && detectionState.isDetectionRunning()) {
-      blinkPolicy.evaluate(metrics.blink.blinkRate, metrics.blink.timestamp);
+    if (metrics.blink) {
+      console.log('[IPC] 👁️ Blink metrics received:', {
+        blinkRate: metrics.blink.blinkRate.toFixed(2),
+        blinkCount: metrics.blink.blinkCount,
+        timestamp: new Date(metrics.blink.timestamp).toISOString(),
+        isDetectionRunning: detectionState.isDetectionRunning(),
+      });
+      
+      if (detectionState.isDetectionRunning()) {
+        console.log('[IPC] Evaluating blink policy...');
+        blinkPolicy.evaluate(metrics.blink.blinkRate, metrics.blink.timestamp);
+      } else {
+        console.log('[IPC] ⚠️ Detection not running, skipping blink policy evaluation');
+      }
     }
     
     // Evaluate posture policy if posture metrics are present
-    if (metrics.posture && metrics.posture.postureScore !== undefined && detectionState.isDetectionRunning()) {
-      posturePolicy.evaluate(metrics.posture.postureScore, metrics.posture.timestamp);
+    if (metrics.posture && metrics.posture.postureScore !== undefined) {
+      console.log('[IPC] 🧍 Posture metrics received:', {
+        postureScore: metrics.posture.postureScore.toFixed(2),
+        headPitchAngle: metrics.posture.headPitchAngle?.toFixed(2),
+        shoulderRollAngle: metrics.posture.shoulderRollAngle?.toFixed(2),
+        timestamp: new Date(metrics.posture.timestamp).toISOString(),
+        isDetectionRunning: detectionState.isDetectionRunning(),
+      });
+      
+      if (detectionState.isDetectionRunning()) {
+        console.log('[IPC] Evaluating posture policy...');
+        posturePolicy.evaluate(metrics.posture.postureScore, metrics.posture.timestamp);
+      } else {
+        console.log('[IPC] ⚠️ Detection not running, skipping posture policy evaluation');
+      }
     }
     
     // Forward metrics to settings window if open
