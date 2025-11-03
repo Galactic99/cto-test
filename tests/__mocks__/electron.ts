@@ -1,8 +1,6 @@
 export class Notification {
-  private options: any;
-
-  constructor(options: any) {
-    this.options = options;
+  constructor(_options: any) {
+    // Mock implementation
   }
 
   show(): void {
