@@ -13,6 +13,7 @@ import {
 import { DetectionFeatures, FpsMode } from '../../types/settings';
 import { BlinkDetector, createBlinkDetector, BlinkMetrics } from './metrics/blink';
 import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggregators';
+import { PostureDetector, createPostureDetector, PostureMetrics } from './metrics/posture';
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ declare global {
       sendMetricsUpdate: (metrics: any) => void;
     };
     getBlinkMetrics?: () => BlinkMetrics | null;
+    getPostureMetrics?: () => PostureMetrics | null;
   }
 }
 
@@ -42,6 +44,7 @@ let faceLandmarker: FaceLandmarkerInstance | null = null;
 let poseLandmarker: PoseLandmarkerInstance | null = null;
 let blinkDetector: BlinkDetector | null = null;
 let blinkRateAggregator: BlinkRateAggregator | null = null;
+let postureDetector: PostureDetector | null = null;
 let detectionConfig: DetectionConfig | null = null;
 let detectionLoopId: number | null = null;
 let frameCount = 0;
@@ -124,16 +127,8 @@ function runDetectionLoop(): void {
               }
             }
 
-            if (
-              warmupFramesProcessed >= WARMUP_FRAMES &&
-              result.landmarks &&
-              result.landmarks.length > 0
-            ) {
-              console.log(
-                '[Sensor] Pose landmarks detected:',
-                result.landmarks[0].length,
-                'landmarks'
-              );
+            if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
+              postureDetector.processFrame(result, now);
             }
           }
         }
@@ -158,21 +153,43 @@ function runDetectionLoop(): void {
               );
             }
 
+            if (detectionConfig?.features.posture && postureDetector) {
+              const metrics = postureDetector.getMetrics();
+              console.log(
+                `[Sensor] Posture Metrics: Score=${metrics.postureScore.toFixed(1)}, Head Pitch=${metrics.headPitchAngle.toFixed(1)}°, Shoulder Roll=${metrics.shoulderRollAngle.toFixed(2)}`
+              );
+            }
+
             frameCount = 0;
             lastFpsLogTime = now;
           }
 
           if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
+            const metricsUpdate: any = {};
+
             if (detectionConfig?.features.blink && blinkRateAggregator) {
               const aggregatedMetrics = blinkRateAggregator.getMetrics(now);
-              window.sensorAPI.sendMetricsUpdate({
-                blink: {
-                  timestamp: now,
-                  blinkCount: aggregatedMetrics.eventCount,
-                  blinkRate: aggregatedMetrics.blinksPerMinute,
-                },
-              });
+              metricsUpdate.blink = {
+                timestamp: now,
+                blinkCount: aggregatedMetrics.eventCount,
+                blinkRate: aggregatedMetrics.blinksPerMinute,
+              };
             }
+
+            if (detectionConfig?.features.posture && postureDetector) {
+              const postureMetrics = postureDetector.getMetrics();
+              metricsUpdate.posture = {
+                timestamp: now,
+                postureScore: postureMetrics.postureScore,
+                headPitchAngle: postureMetrics.headPitchAngle,
+                shoulderRollAngle: postureMetrics.shoulderRollAngle,
+              };
+            }
+
+            if (Object.keys(metricsUpdate).length > 0) {
+              window.sensorAPI.sendMetricsUpdate(metricsUpdate);
+            }
+
             lastMetricsReportTime = now;
           }
         }
@@ -268,6 +285,11 @@ async function initializeModel(): Promise<void> {
       poseLandmarker = await initializePoseLandmarker();
       console.log('[Sensor] Reusing existing Pose Landmarker instance');
     }
+
+    if (!postureDetector) {
+      postureDetector = createPostureDetector();
+      console.log('[Sensor] Posture detector initialized');
+    }
   }
 }
 
@@ -292,6 +314,12 @@ function cleanupModel(): void {
     blinkRateAggregator.reset();
     blinkRateAggregator = null;
     console.log('[Sensor] Blink rate aggregator cleaned up');
+  }
+
+  if (postureDetector) {
+    postureDetector.reset();
+    postureDetector = null;
+    console.log('[Sensor] Posture detector cleaned up');
   }
 
   closeFaceLandmarker();
@@ -403,6 +431,11 @@ window.sensorAPI.onDetectionConfigure((config) => {
     blinkRateAggregator.reset();
   }
 
+  if (postureDetector && config.features.posture) {
+    console.log('[Sensor] Resetting posture detector for new configuration');
+    postureDetector.reset();
+  }
+
   if (faceLandmarker && videoElement && mediaStream) {
     stopDetectionLoop();
     console.log('[Sensor] Restarting detection loop with new config');
@@ -421,6 +454,13 @@ window.getBlinkMetrics = () => {
     return null;
   }
   return blinkDetector.getMetrics();
+};
+
+window.getPostureMetrics = () => {
+  if (!postureDetector) {
+    return null;
+  }
+  return postureDetector.getMetrics();
 };
 
 console.log('[Sensor] Sensor window initialized');

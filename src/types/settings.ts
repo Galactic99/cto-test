@@ -24,6 +24,7 @@ export interface DetectionSettings {
   features?: DetectionFeatures;
   fpsMode?: FpsMode;
   privacyConsentGiven?: boolean;
+  postureScoreThreshold?: number;
 }
 
 export interface AppSettings {
@@ -53,5 +54,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     fpsMode: 'medium',
     privacyConsentGiven: false,
+    postureScoreThreshold: 60,
   },
 };
