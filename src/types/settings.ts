@@ -62,7 +62,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     fpsMode: 'balanced',
     privacyConsentGiven: false,
-    postureScoreThreshold: 60,
+    postureScoreThreshold: 45,
     postureBaselinePitch: undefined,
     postureCalibrationTimestamp: undefined,
     idleDetection: {

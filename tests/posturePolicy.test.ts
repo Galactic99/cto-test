@@ -42,7 +42,7 @@ describe('PosturePolicy', () => {
       const p = createPosturePolicy();
       expect(p).toBeInstanceOf(PosturePolicy);
       const config = p.getConfig();
-      expect(config.scoreThreshold).toBe(60);
+      expect(config.scoreThreshold).toBe(45);
       expect(config.cooldownMs).toBe(15 * 60 * 1000);
       expect(config.minRequiredDurationMs).toBe(30 * 1000);
       expect(config.maxRequiredDurationMs).toBe(60 * 1000);
@@ -68,8 +68,8 @@ describe('PosturePolicy', () => {
       });
 
       const currentTime = Date.now();
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 60000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 60000);
 
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
@@ -81,8 +81,8 @@ describe('PosturePolicy', () => {
       });
 
       const currentTime = Date.now();
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 60000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 60000);
 
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
@@ -97,8 +97,8 @@ describe('PosturePolicy', () => {
       });
 
       const currentTime = Date.now();
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 60000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 60000);
 
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
@@ -114,7 +114,7 @@ describe('PosturePolicy', () => {
 
     it('should not trigger notification immediately when score drops below threshold', () => {
       const currentTime = Date.now();
-      policy.evaluate(50, currentTime);
+      policy.evaluate(40, currentTime);
 
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
@@ -122,24 +122,24 @@ describe('PosturePolicy', () => {
     it('should trigger notification after minimum required duration below threshold', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
+      policy.evaluate(40, currentTime);
       expect(mockShowNotification).not.toHaveBeenCalled();
 
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
-        body: expect.stringContaining('50/100'),
+        body: expect.stringContaining('40/100'),
       });
     });
 
     it('should not trigger if score returns to normal before required duration', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 15000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 15000);
       policy.evaluate(70, currentTime + 20000);
-      policy.evaluate(50, currentTime + 50000);
+      policy.evaluate(40, currentTime + 50000);
 
       expect(mockShowNotification).not.toHaveBeenCalled();
     });
@@ -147,7 +147,7 @@ describe('PosturePolicy', () => {
     it('should track state correctly when score drops below threshold', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
+      policy.evaluate(40, currentTime);
 
       const state = policy.getState();
       expect(state.isPosturePoor).toBe(true);
@@ -159,7 +159,7 @@ describe('PosturePolicy', () => {
     it('should reset poor posture state when score returns to normal', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
+      policy.evaluate(40, currentTime);
       expect(policy.getState().isPosturePoor).toBe(true);
 
       policy.evaluate(70, currentTime + 15000);
@@ -173,27 +173,27 @@ describe('PosturePolicy', () => {
     it('should trigger at minimum duration (30s)', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 29000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 29000);
       expect(mockShowNotification).not.toHaveBeenCalled();
 
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
 
     it('should trigger within the duration window', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 45000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 45000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
 
     it('should trigger at maximum duration (60s)', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 60000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 60000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
   });
@@ -202,41 +202,41 @@ describe('PosturePolicy', () => {
     it('should enforce 15-minute cooldown between notifications', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      policy.evaluate(50, currentTime + 30000 + 5 * 60 * 1000);
+      policy.evaluate(40, currentTime + 30000 + 5 * 60 * 1000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      policy.evaluate(50, currentTime + 30000 + 15 * 60 * 1000);
+      policy.evaluate(40, currentTime + 30000 + 15 * 60 * 1000);
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
 
     it('should allow notification exactly at cooldown expiry', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      policy.evaluate(50, currentTime + 30000 + 15 * 60 * 1000);
+      policy.evaluate(40, currentTime + 30000 + 15 * 60 * 1000);
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
 
     it('should not reset cooldown if score returns to normal but improvement is within threshold', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      // Score improves to 65 (improvement of 15, not greater than threshold of 15)
-      policy.evaluate(65, currentTime + 60000);
+      // Score improves to 55 (improvement of 15, not greater than threshold of 15)
+      policy.evaluate(55, currentTime + 60000);
       
       // Score drops again before cooldown expires
-      policy.evaluate(50, currentTime + 120000);
-      policy.evaluate(50, currentTime + 150000);
+      policy.evaluate(40, currentTime + 120000);
+      policy.evaluate(40, currentTime + 150000);
       
       // Should not trigger another notification (cooldown still active)
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
@@ -245,12 +245,12 @@ describe('PosturePolicy', () => {
     it('should track last notification time', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
 
       const state = policy.getState();
       expect(state.lastNotificationTime).toBe(currentTime + 30000);
-      expect(state.scoreAtNotification).toBe(50);
+      expect(state.scoreAtNotification).toBe(40);
     });
   });
 
@@ -258,8 +258,8 @@ describe('PosturePolicy', () => {
     it('should reset cooldown when score improves by more than 15 points', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.evaluate(70, currentTime + 60000);
@@ -267,19 +267,19 @@ describe('PosturePolicy', () => {
       expect(state.lastNotificationTime).toBeNull();
       expect(state.scoreAtNotification).toBeNull();
 
-      policy.evaluate(50, currentTime + 90000);
-      policy.evaluate(50, currentTime + 120000);
+      policy.evaluate(40, currentTime + 90000);
+      policy.evaluate(40, currentTime + 120000);
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
 
     it('should not reset cooldown when improvement is exactly 15 points', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      policy.evaluate(65, currentTime + 60000);
+      policy.evaluate(55, currentTime + 60000);
       const state = policy.getState();
       expect(state.lastNotificationTime).not.toBeNull();
       expect(state.scoreAtNotification).not.toBeNull();
@@ -288,8 +288,8 @@ describe('PosturePolicy', () => {
     it('should reset cooldown when improvement is greater than 15 points', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(45, currentTime);
-      policy.evaluate(45, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.evaluate(80, currentTime + 60000);
@@ -301,8 +301,8 @@ describe('PosturePolicy', () => {
     it('should handle multiple improvement cycles', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.evaluate(70, currentTime + 60000);
@@ -313,8 +313,8 @@ describe('PosturePolicy', () => {
 
       policy.evaluate(80, currentTime + 180000);
 
-      policy.evaluate(45, currentTime + 240000);
-      policy.evaluate(45, currentTime + 270000);
+      policy.evaluate(40, currentTime + 240000);
+      policy.evaluate(40, currentTime + 270000);
       expect(mockShowNotification).toHaveBeenCalledTimes(3);
     });
   });
@@ -323,32 +323,32 @@ describe('PosturePolicy', () => {
     it('should include actual posture score in notification', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(55, currentTime);
-      policy.evaluate(55, currentTime + 30000);
+      policy.evaluate(35, currentTime);
+      policy.evaluate(35, currentTime + 30000);
 
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
-        body: expect.stringContaining('55/100'),
+        body: expect.stringContaining('35/100'),
       });
     });
 
     it('should round posture score in notification', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(52.7, currentTime);
-      policy.evaluate(52.7, currentTime + 30000);
+      policy.evaluate(42.7, currentTime);
+      policy.evaluate(42.7, currentTime + 30000);
 
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
-        body: expect.stringContaining('53/100'),
+        body: expect.stringContaining('43/100'),
       });
     });
 
     it('should include posture guidance in notification', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
 
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
@@ -361,8 +361,8 @@ describe('PosturePolicy', () => {
     it('should clear all state', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.reset();
@@ -377,14 +377,14 @@ describe('PosturePolicy', () => {
     it('should allow immediate notification after reset', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.reset();
 
-      policy.evaluate(50, currentTime + 60000);
-      policy.evaluate(50, currentTime + 90000);
+      policy.evaluate(40, currentTime + 60000);
+      policy.evaluate(40, currentTime + 90000);
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
   });
@@ -395,7 +395,7 @@ describe('PosturePolicy', () => {
 
       for (let minute = 0; minute <= 45; minute++) {
         const currentTime = startTime + minute * 60 * 1000;
-        policy.evaluate(50, currentTime);
+        policy.evaluate(40, currentTime);
       }
 
       expect(mockShowNotification).toHaveBeenCalledTimes(3);
@@ -416,11 +416,11 @@ describe('PosturePolicy', () => {
     it('should handle sustained poor posture with brief improvements', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 15000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 15000);
       policy.evaluate(70, currentTime + 20000);
-      policy.evaluate(50, currentTime + 25000);
-      policy.evaluate(50, currentTime + 55000);
+      policy.evaluate(40, currentTime + 25000);
+      policy.evaluate(40, currentTime + 55000);
 
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
@@ -461,8 +461,8 @@ describe('PosturePolicy', () => {
     it('should handle fractional posture scores', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(55.3, currentTime);
-      policy.evaluate(55.7, currentTime + 30000);
+      policy.evaluate(42.3, currentTime);
+      policy.evaluate(42.7, currentTime + 30000);
 
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
@@ -472,10 +472,10 @@ describe('PosturePolicy', () => {
     it('should maintain state across multiple evaluations', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
+      policy.evaluate(40, currentTime);
       let state1 = policy.getState();
 
-      policy.evaluate(50, currentTime + 15000);
+      policy.evaluate(40, currentTime + 15000);
       let state2 = policy.getState();
 
       expect(state2.isPosturePoor).toBe(true);
@@ -485,13 +485,13 @@ describe('PosturePolicy', () => {
     it('should preserve notification time and score across evaluations', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
 
       const notificationTime = policy.getState().lastNotificationTime;
       const notificationScore = policy.getState().scoreAtNotification;
 
-      policy.evaluate(50, currentTime + 60000);
+      policy.evaluate(40, currentTime + 60000);
 
       expect(policy.getState().lastNotificationTime).toBe(notificationTime);
       expect(policy.getState().scoreAtNotification).toBe(notificationScore);
@@ -502,13 +502,13 @@ describe('PosturePolicy', () => {
     it('should update cooldown config', () => {
       const currentTime = Date.now();
 
-      policy.evaluate(50, currentTime);
-      policy.evaluate(50, currentTime + 30000);
+      policy.evaluate(40, currentTime);
+      policy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
       policy.updateConfig({ cooldownMs: 5 * 60 * 1000 });
 
-      policy.evaluate(50, currentTime + 30000 + 5 * 60 * 1000);
+      policy.evaluate(40, currentTime + 30000 + 5 * 60 * 1000);
       expect(mockShowNotification).toHaveBeenCalledTimes(2);
     });
 
@@ -546,14 +546,16 @@ describe('PosturePolicy', () => {
 
       const currentTime = Date.now();
 
-      customPolicy.evaluate(50, currentTime);
-      customPolicy.evaluate(50, currentTime + 30000);
+      customPolicy.evaluate(40, currentTime);
+      customPolicy.evaluate(40, currentTime + 30000);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
 
-      customPolicy.evaluate(69, currentTime + 60000);
+      // Improvement of exactly 20 (40 → 60) should NOT reset cooldown
+      customPolicy.evaluate(60, currentTime + 60000);
       expect(customPolicy.getState().lastNotificationTime).not.toBeNull();
 
-      customPolicy.evaluate(71, currentTime + 90000);
+      // Improvement of 21 (40 → 61) should reset cooldown
+      customPolicy.evaluate(61, currentTime + 90000);
       expect(customPolicy.getState().lastNotificationTime).toBeNull();
     });
   });

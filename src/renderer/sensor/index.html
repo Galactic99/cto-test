@@ -10,6 +10,7 @@
         padding: 0;
         background-color: #000000;
         overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       }
       #video {
         width: 100%;
@@ -17,10 +18,130 @@
         object-fit: cover;
         display: none;
       }
+      #debug-overlay {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.6;
+        min-width: 250px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: none;
+      }
+      #debug-overlay.visible {
+        display: block;
+      }
+      .debug-section {
+        margin-bottom: 12px;
+      }
+      .debug-section:last-child {
+        margin-bottom: 0;
+      }
+      .debug-label {
+        color: #888;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+      }
+      .debug-value {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .score-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .score-bar {
+        flex: 1;
+        height: 20px;
+        background: #222;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+      }
+      .score-fill {
+        height: 100%;
+        transition: width 0.3s ease, background-color 0.3s ease;
+        border-radius: 4px;
+      }
+      .score-fill.good {
+        background: linear-gradient(90deg, #4ade80, #22c55e);
+      }
+      .score-fill.warning {
+        background: linear-gradient(90deg, #facc15, #f59e0b);
+      }
+      .score-fill.poor {
+        background: linear-gradient(90deg, #f87171, #ef4444);
+      }
+      .threshold-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.5);
+        z-index: 1;
+      }
+      .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .status-badge.good {
+        background: #22c55e;
+        color: #fff;
+      }
+      .status-badge.warning {
+        background: #f59e0b;
+        color: #fff;
+      }
+      .status-badge.poor {
+        background: #ef4444;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
     <video id="video" autoplay playsinline></video>
+    <div id="debug-overlay">
+      <div class="debug-section">
+        <div class="debug-label">Posture Score</div>
+        <div class="score-indicator">
+          <div class="score-bar">
+            <div id="score-fill" class="score-fill good"></div>
+            <div id="threshold-line" class="threshold-line"></div>
+          </div>
+          <span id="score-value" class="debug-value">100</span>
+        </div>
+        <div style="margin-top: 8px;">
+          <span id="status-badge" class="status-badge good">GOOD</span>
+        </div>
+      </div>
+      <div class="debug-section">
+        <div class="debug-label">Head Pitch</div>
+        <div class="debug-value" id="head-pitch">0.0°</div>
+      </div>
+      <div class="debug-section">
+        <div class="debug-label">Shoulder Roll</div>
+        <div class="debug-value" id="shoulder-roll">0.0</div>
+      </div>
+      <div class="debug-section">
+        <div class="debug-label">Baseline</div>
+        <div class="debug-value" id="baseline-info">Not calibrated</div>
+      </div>
+      <div class="debug-section">
+        <div class="debug-label">Threshold</div>
+        <div class="debug-value" id="threshold-value">45</div>
+      </div>
+    </div>
     <script type="module" src="/src/renderer/sensor/sensor.ts"></script>
   </body>
 </html>

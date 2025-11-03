@@ -107,7 +107,7 @@ describe('PostureDetector', () => {
   describe('Initialization', () => {
     it('should initialize with default config', () => {
       const config = detector.getConfig();
-      expect(config.scoreThreshold).toBe(60);
+      expect(config.scoreThreshold).toBe(45);
       expect(config.emaAlpha).toBe(0.2);
     });
 
@@ -151,11 +151,13 @@ describe('PostureDetector', () => {
 
   describe('Poor Posture Detection', () => {
     it('should decrease score for forward head tilt', () => {
-      const result = createMockPoseResult(0.25, 0); // Significant forward head
+      const result = createMockPoseResult(0.25, 0); // Moderate forward head
       detector.processFrame(result, 1000);
 
       const metrics = detector.getMetrics();
-      expect(metrics.postureScore).toBeLessThan(95);
+      // With new more forgiving algorithm, slight tilt doesn't drastically reduce score
+      expect(metrics.postureScore).toBeLessThan(100);
+      expect(metrics.postureScore).toBeGreaterThan(90);
       expect(metrics.rawHeadPitch).not.toBe(0);
     });
 
@@ -164,7 +166,9 @@ describe('PostureDetector', () => {
       detector.processFrame(result, 1000);
 
       const metrics = detector.getMetrics();
-      expect(metrics.postureScore).toBeLessThan(95);
+      // With new more forgiving algorithm, slight shoulder roll doesn't drastically reduce score
+      expect(metrics.postureScore).toBeLessThan(100);
+      expect(metrics.postureScore).toBeGreaterThan(90);
       expect(metrics.rawShoulderRoll).not.toBe(0);
     });
 
@@ -173,7 +177,24 @@ describe('PostureDetector', () => {
       detector.processFrame(result, 1000);
 
       const metrics = detector.getMetrics();
-      expect(metrics.postureScore).toBeLessThan(90);
+      // Combined poor posture should still reduce score, but more forgiving than before
+      expect(metrics.postureScore).toBeLessThan(100);
+      expect(metrics.postureScore).toBeGreaterThan(85);
+    });
+
+    it('should score below threshold for severe slouching', () => {
+      // Test that truly poor posture (severe forward head + rounded shoulders) scores low
+      const severePosture = createMockPoseResult(0.8, 0.3); // Severe slouch
+      
+      // Process multiple frames to let EMA converge
+      for (let i = 0; i < 50; i++) {
+        detector.processFrame(severePosture, 1000 + i * 100);
+      }
+
+      const metrics = detector.getMetrics();
+      // Severe posture should score well below the default threshold of 45
+      expect(metrics.postureScore).toBeLessThan(45);
+      expect(metrics.postureScore).toBeGreaterThan(0); // But not zero
     });
 
     it('should recover score when posture improves', () => {
@@ -379,7 +400,7 @@ describe('PostureDetector', () => {
 
       const config = detector.getConfig();
       expect(config.emaAlpha).toBe(0.3);
-      expect(config.scoreThreshold).toBe(60); // Unchanged
+      expect(config.scoreThreshold).toBe(45); // Unchanged
     });
 
     it('should affect smoothing when emaAlpha changed', () => {
