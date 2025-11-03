@@ -17,6 +17,10 @@ export interface ElectronAPI {
     testBlink: () => Promise<void>;
     testPosture: () => Promise<void>;
   };
+  overlay: {
+    testBlink: () => Promise<void>;
+    testPosture: () => Promise<void>;
+  };
   autostart: {
     toggle: (enabled: boolean) => Promise<void>;
   };
@@ -64,6 +68,10 @@ const electronAPI: ElectronAPI = {
   reminder: {
     testBlink: () => ipcRenderer.invoke('reminder:test-blink'),
     testPosture: () => ipcRenderer.invoke('reminder:test-posture'),
+  },
+  overlay: {
+    testBlink: () => ipcRenderer.invoke('overlay:test-blink'),
+    testPosture: () => ipcRenderer.invoke('overlay:test-posture'),
   },
   autostart: {
     toggle: (enabled: boolean) => ipcRenderer.invoke('autostart:toggle', enabled),

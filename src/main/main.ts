@@ -99,6 +99,12 @@ if (!gotTheLock) {
     pauseManager.cleanup();
     autostart.cleanup();
     sensorWindow.destroySensorWindow();
+    
+    // Cleanup notification manager
+    import('./system/NotificationManager').then(({ destroyNotificationManager }) => {
+      destroyNotificationManager();
+    });
+    
     cleanupIpcHandlers();
     destroySettingsWindow();
     destroySystemTray();

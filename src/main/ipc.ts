@@ -64,6 +64,20 @@ export function registerIpcHandlers(): void {
     postureReminder.test();
   });
 
+  ipcMain.handle('overlay:test-blink', async (): Promise<void> => {
+    console.log('[IPC] Test blink overlay notification requested');
+    const { getNotificationManager } = await import('./system/NotificationManager');
+    const manager = getNotificationManager();
+    manager.show('Time to blink', 'Look away for 20 seconds to rest your eyes', 'blink');
+  });
+
+  ipcMain.handle('overlay:test-posture', async (): Promise<void> => {
+    console.log('[IPC] Test posture overlay notification requested');
+    const { getNotificationManager } = await import('./system/NotificationManager');
+    const manager = getNotificationManager();
+    manager.show('Check your posture', 'Sit upright, relax shoulders, feet flat', 'posture');
+  });
+
   ipcMain.handle('autostart:toggle', async (_event, enabled: boolean): Promise<void> => {
     console.log('[IPC] Autostart toggle requested:', enabled);
     autostart.setAutostart(enabled);
@@ -339,6 +353,8 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('settings:set');
   ipcMain.removeHandler('reminder:test-blink');
   ipcMain.removeHandler('reminder:test-posture');
+  ipcMain.removeHandler('overlay:test-blink');
+  ipcMain.removeHandler('overlay:test-posture');
   ipcMain.removeHandler('autostart:toggle');
   ipcMain.removeHandler('sensor:enable-detection');
   ipcMain.removeHandler('sensor:disable-detection');
