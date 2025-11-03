@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DetectionSettings } from '../../types/settings';
 
 interface CalibrationProps {
@@ -27,30 +27,7 @@ function Calibration({
     ? new Date(detectionSettings.postureCalibrationTimestamp).toLocaleString()
     : null;
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isCalibrating && countdown > 0) {
-      timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-    } else if (isCalibrating && countdown === 0) {
-      completeCalibration();
-    }
-    return () => clearTimeout(timer);
-  }, [isCalibrating, countdown]);
-
-  const startCalibration = async (): Promise<void> => {
-    if (!canCalibrate) {
-      setError('Cannot calibrate: detection must be running with camera permission granted');
-      return;
-    }
-
-    setIsCalibrating(true);
-    setCountdown(5);
-    setError(null);
-  };
-
-  const completeCalibration = async (): Promise<void> => {
+  const completeCalibration = useCallback(async (): Promise<void> => {
     try {
       await window.electronAPI.detection.calibratePosture();
       setIsCalibrating(false);
@@ -64,6 +41,33 @@ function Calibration({
       setIsCalibrating(false);
       setCountdown(5);
     }
+  }, [onCalibrationComplete]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isCalibrating) {
+      if (countdown > 0) {
+        timer = setTimeout(() => {
+          setCountdown(countdown - 1);
+        }, 1000);
+      } else if (countdown === 0) {
+        timer = setTimeout(() => {
+          completeCalibration();
+        }, 0);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [isCalibrating, countdown, completeCalibration]);
+
+  const startCalibration = async (): Promise<void> => {
+    if (!canCalibrate) {
+      setError('Cannot calibrate: detection must be running with camera permission granted');
+      return;
+    }
+
+    setIsCalibrating(true);
+    setCountdown(5);
+    setError(null);
   };
 
   const cancelCalibration = (): void => {

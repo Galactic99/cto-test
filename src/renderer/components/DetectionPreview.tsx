@@ -16,6 +16,7 @@ function DetectionPreview({ isDetectionRunning }: DetectionPreviewProps): React.
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(true);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const wasRunningRef = useRef<boolean>(isDetectionRunning);
 
   // Handle window visibility changes
   useEffect(() => {
@@ -49,10 +50,7 @@ function DetectionPreview({ isDetectionRunning }: DetectionPreviewProps): React.
     // Initial fetch
     if (isDetectionRunning && isVisible) {
       fetchMetrics();
-    }
-
-    // Set up polling
-    if (isDetectionRunning && isVisible) {
+      // Set up polling
       pollingIntervalRef.current = setInterval(fetchMetrics, POLL_INTERVAL_MS);
     }
 
@@ -62,16 +60,14 @@ function DetectionPreview({ isDetectionRunning }: DetectionPreviewProps): React.
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      // Reset metrics in cleanup when detection stops
+      if (!isDetectionRunning && wasRunningRef.current) {
+        setMetrics(null);
+        setLastUpdated(null);
+        wasRunningRef.current = false;
+      }
     };
   }, [isDetectionRunning, isVisible]);
-
-  // Reset metrics when detection stops
-  useEffect(() => {
-    if (!isDetectionRunning) {
-      setMetrics(null);
-      setLastUpdated(null);
-    }
-  }, [isDetectionRunning]);
 
   const getBlinkRateStatus = (blinkRate: number): 'healthy' | 'warning' => {
     if (blinkRate >= BLINK_RATE_HEALTHY_MIN && blinkRate <= BLINK_RATE_HEALTHY_MAX) {

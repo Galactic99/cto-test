@@ -1,4 +1,4 @@
-import { Tray, Menu, nativeImage, app, NativeImage } from 'electron';
+import { Tray, Menu, nativeImage, app, NativeImage, MenuItemConstructorOptions } from 'electron';
 import { showSettingsWindow } from './window';
 import { pauseManager } from './pauseManager';
 
@@ -41,7 +41,7 @@ function buildTrayMenu(): Menu {
   const pauseState = pauseManager.getState();
   const isPaused = pauseState.isPaused;
 
-  const menuTemplate: any[] = [
+  const menuTemplate: MenuItemConstructorOptions[] = [
     {
       label: 'Open Settings',
       click: () => {

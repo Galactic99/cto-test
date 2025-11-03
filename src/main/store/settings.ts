@@ -1,4 +1,4 @@
-import ElectronStore from 'electron-store';
+import ElectronStore, { Schema } from 'electron-store';
 import {
   AppSettings,
   BlinkSettings,
@@ -83,7 +83,7 @@ const schema = {
 // Create the store instance with defaults and schema
 const store = new ElectronStore<AppSettings>({
   defaults: DEFAULT_SETTINGS,
-  schema: schema as any, // electron-store uses JSON Schema which is compatible
+  schema: schema as Schema<AppSettings>,
   name: 'settings',
 }) as Store;
 

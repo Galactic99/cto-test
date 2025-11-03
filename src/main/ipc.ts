@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, IpcMainEvent } from 'electron';
 import { AppSettings, DetectionSettings } from '../types/settings';
 import { DetectionMetrics, DetectionStatus, DetectionError } from '../types/detection';
 import { getSettings, setSettings } from './store/settings';
@@ -175,7 +175,7 @@ export function registerIpcHandlers(): void {
         reject(new Error('Calibration timeout'));
       }, 10000);
 
-      const calibrationHandler = (_event: any, baseline: number) => {
+      const calibrationHandler = (_event: IpcMainEvent, baseline: number) => {
         clearTimeout(timeout);
         ipcMain.removeListener('sensor:calibration-result', calibrationHandler);
         
