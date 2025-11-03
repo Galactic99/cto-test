@@ -10,6 +10,7 @@ import { getSettingsWindow } from './window';
 import * as detectionState from './detectionState';
 import { createBlinkPolicy, createPosturePolicy } from './detection/policy';
 import { pauseManager, PauseState } from './pauseManager';
+import * as idleDetection from './system/idleDetection';
 
 let blinkPolicy = createBlinkPolicy();
 let posturePolicy = createPosturePolicy();
@@ -27,6 +28,12 @@ export function registerIpcHandlers(): void {
       console.log('[IPC] Settings update requested:', partialSettings);
       const updatedSettings = setSettings(partialSettings);
       console.log('[IPC] Settings updated to:', updatedSettings);
+      
+      if (partialSettings.detection?.idleDetection !== undefined) {
+        console.log('[IPC] Idle detection settings changed, updating manager');
+        idleDetection.updateIdleDetectionSettings();
+      }
+      
       return updatedSettings;
     }
   );

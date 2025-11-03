@@ -19,6 +19,11 @@ export interface DetectionFeatures {
   posture: boolean;
 }
 
+export interface IdleDetectionSettings {
+  enabled: boolean;
+  thresholdMinutes: number;
+}
+
 export interface DetectionSettings {
   enabled: boolean;
   features?: DetectionFeatures;
@@ -27,6 +32,7 @@ export interface DetectionSettings {
   postureScoreThreshold?: number;
   postureBaselinePitch?: number;
   postureCalibrationTimestamp?: number;
+  idleDetection?: IdleDetectionSettings;
 }
 
 export interface AppSettings {
@@ -59,5 +65,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     postureScoreThreshold: 60,
     postureBaselinePitch: undefined,
     postureCalibrationTimestamp: undefined,
+    idleDetection: {
+      enabled: true,
+      thresholdMinutes: 5,
+    },
   },
 };

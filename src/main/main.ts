@@ -11,6 +11,7 @@ import * as postureReminder from './reminders/posture';
 import * as autostart from './system/autostart';
 import * as sensorWindow from './sensorWindow';
 import { pauseManager } from './pauseManager';
+import * as idleDetection from './system/idleDetection';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -49,6 +50,9 @@ if (!gotTheLock) {
     // Start posture reminders if enabled
     postureReminder.start();
 
+    // Initialize idle detection
+    idleDetection.initializeIdleDetection();
+
     // Check if --hidden flag is present
     const shouldStartHidden = process.argv.includes('--hidden');
 
@@ -77,6 +81,7 @@ if (!gotTheLock) {
     // Clean up resources before quitting
     blinkReminder.stop();
     postureReminder.stop();
+    idleDetection.shutdownIdleDetection();
     pauseManager.cleanup();
     autostart.cleanup();
     sensorWindow.destroySensorWindow();
