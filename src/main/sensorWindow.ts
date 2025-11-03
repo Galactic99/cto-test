@@ -89,7 +89,7 @@ export function disableDetection(): Promise<void> {
   });
 }
 
-export function sendToSensor(channel: string, ...args: any[]): void {
+export function sendToSensor(channel: string, ...args: unknown[]): void {
   if (sensorWindow && !sensorWindow.isDestroyed()) {
     sensorWindow.webContents.send(channel, ...args);
   } else {

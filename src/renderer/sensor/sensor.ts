@@ -16,7 +16,7 @@ import { BlinkRateAggregator, createBlinkRateAggregator } from './metrics/aggreg
 import { PostureDetector, createPostureDetector, PostureMetrics } from './metrics/posture';
 import { DetectionLoop, createDetectionLoop } from './loop';
 import { RetryManager } from './retryManager';
-import { DetectionError, DetectionErrorType } from '../../types/detection';
+import { DetectionError, DetectionErrorType, DetectionMetrics } from '../../types/detection';
 
 declare global {
   interface Window {
@@ -34,7 +34,7 @@ declare global {
           postureBaselinePitch?: number;
         }) => void
       ) => void;
-      sendMetricsUpdate: (metrics: any) => void;
+      sendMetricsUpdate: (metrics: DetectionMetrics) => void;
       onCalibratePosture: (callback: () => void) => void;
       sendCalibrationResult: (baseline: number) => void;
       onRetryDetection: (callback: () => void) => void;
@@ -202,7 +202,7 @@ function runDetectionLoop(): void {
         detectionLoop.recordProcessingTime(processingStartTime, processingEndTime);
 
         if (now - lastMetricsReportTime >= METRICS_REPORT_INTERVAL) {
-          const metricsUpdate: any = {};
+          const metricsUpdate: DetectionMetrics = {};
           const loopMetrics = detectionLoop.getMetrics(now);
 
           console.log(
@@ -240,14 +240,6 @@ function runDetectionLoop(): void {
               shoulderRollAngle: postureMetrics.shoulderRollAngle,
             };
           }
-
-          metricsUpdate.loop = {
-            currentFps: loopMetrics.currentFps,
-            targetFps: loopMetrics.targetFps,
-            cpuUsage: loopMetrics.cpuUsagePercent,
-            isThrottled: loopMetrics.isThrottled,
-            throttleReason: loopMetrics.throttleReason,
-          };
 
           if (Object.keys(metricsUpdate).length > 0) {
             window.sensorAPI.sendMetricsUpdate(metricsUpdate);
