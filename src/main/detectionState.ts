@@ -1,6 +1,7 @@
 import { DetectionSettings, DetectionFeatures, FpsMode } from '../types/settings';
 import { DetectionStatus, DetectionMetrics } from '../types/detection';
 import * as sensorWindow from './sensorWindow';
+import { getSettings } from './store/settings';
 
 interface DetectionState {
   isRunning: boolean;
@@ -61,10 +62,13 @@ export async function startDetection(): Promise<void> {
 
     state.isRunning = true;
     
+    const settings = getSettings();
+    
     // Send configuration to sensor window
     sensorWindow.sendToSensor('detection:configure', {
       features: state.features,
       fpsMode: state.fpsMode,
+      postureBaselinePitch: settings.detection.postureBaselinePitch,
     });
     
     // Start the camera
@@ -115,9 +119,11 @@ export function updateSettings(settings: Partial<DetectionSettings>): DetectionS
   
   // If detection is running, send updated configuration to sensor window
   if (wasRunning && state.isRunning) {
+    const currentSettings = getSettings();
     sensorWindow.sendToSensor('detection:configure', {
       features: state.features,
       fpsMode: state.fpsMode,
+      postureBaselinePitch: currentSettings.detection.postureBaselinePitch,
     });
   }
   

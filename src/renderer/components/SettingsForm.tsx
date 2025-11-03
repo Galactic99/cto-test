@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '../../types/settings';
 import DetectionSettings from './DetectionSettings';
+import Calibration from './Calibration';
 
 const MIN_INTERVAL = 1;
 const MAX_INTERVAL = 240;
@@ -15,10 +16,21 @@ function SettingsForm(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(true);
   const [testingBlink, setTestingBlink] = useState<boolean>(false);
   const [testingPosture, setTestingPosture] = useState<boolean>(false);
+  const [isDetectionRunning, setIsDetectionRunning] = useState<boolean>(false);
 
   useEffect(() => {
     loadSettings();
+    checkDetectionStatus();
   }, []);
+
+  const checkDetectionStatus = async (): Promise<void> => {
+    try {
+      const status = await window.electronAPI.detection.getStatus();
+      setIsDetectionRunning(status.isRunning);
+    } catch (error) {
+      console.error('Failed to get detection status:', error);
+    }
+  };
 
   const loadSettings = async (): Promise<void> => {
     try {
@@ -228,6 +240,15 @@ function SettingsForm(): React.ReactElement {
       <DetectionSettings
         onSettingsChange={(detectionSettings) => {
           setSettings({ ...settings, detection: detectionSettings });
+          checkDetectionStatus();
+        }}
+      />
+
+      <Calibration
+        detectionSettings={settings.detection}
+        isDetectionRunning={isDetectionRunning}
+        onCalibrationComplete={() => {
+          loadSettings();
         }}
       />
 
