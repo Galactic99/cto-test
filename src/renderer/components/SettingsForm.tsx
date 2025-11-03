@@ -22,6 +22,8 @@ function SettingsForm(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(true);
   const [testingBlink, setTestingBlink] = useState<boolean>(false);
   const [testingPosture, setTestingPosture] = useState<boolean>(false);
+  const [testingOverlayBlink, setTestingOverlayBlink] = useState<boolean>(false);
+  const [testingOverlayPosture, setTestingOverlayPosture] = useState<boolean>(false);
   const [isDetectionRunning, setIsDetectionRunning] = useState<boolean>(false);
   const [pauseState, setPauseState] = useState<PauseState>({
     isPaused: false,
@@ -125,6 +127,30 @@ function SettingsForm(): React.ReactElement {
       console.error('Failed to test posture notification:', error);
     } finally {
       setTestingPosture(false);
+    }
+  };
+
+  const handleTestOverlayBlinkNotification = async (): Promise<void> => {
+    setTestingOverlayBlink(true);
+    try {
+      await window.electronAPI.overlay.testBlink();
+      console.log('Overlay blink notification test triggered');
+    } catch (error) {
+      console.error('Failed to test overlay blink notification:', error);
+    } finally {
+      setTestingOverlayBlink(false);
+    }
+  };
+
+  const handleTestOverlayPostureNotification = async (): Promise<void> => {
+    setTestingOverlayPosture(true);
+    try {
+      await window.electronAPI.overlay.testPosture();
+      console.log('Overlay posture notification test triggered');
+    } catch (error) {
+      console.error('Failed to test overlay posture notification:', error);
+    } finally {
+      setTestingOverlayPosture(false);
     }
   };
 
@@ -237,22 +263,40 @@ function SettingsForm(): React.ReactElement {
             (min: {MIN_INTERVAL}, max: {MAX_INTERVAL})
           </span>
         </div>
-        <button
-          onClick={handleTestBlinkNotification}
-          disabled={testingBlink}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: testingBlink ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-            opacity: testingBlink ? 0.6 : 1,
-          }}
-        >
-          {testingBlink ? 'Testing...' : 'Test Blink Notification'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleTestBlinkNotification}
+            disabled={testingBlink}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: testingBlink ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: testingBlink ? 0.6 : 1,
+            }}
+          >
+            {testingBlink ? 'Testing...' : 'Test Toast'}
+          </button>
+          <button
+            onClick={handleTestOverlayBlinkNotification}
+            disabled={testingOverlayBlink}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#6c5ce7',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: testingOverlayBlink ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: testingOverlayBlink ? 0.6 : 1,
+            }}
+          >
+            {testingOverlayBlink ? 'Testing...' : 'Test Overlay'}
+          </button>
+        </div>
       </div>
 
       <div style={{ marginBottom: '30px' }}>
@@ -294,22 +338,40 @@ function SettingsForm(): React.ReactElement {
             (min: {MIN_INTERVAL}, max: {MAX_INTERVAL})
           </span>
         </div>
-        <button
-          onClick={handleTestPostureNotification}
-          disabled={testingPosture}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: testingPosture ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-            opacity: testingPosture ? 0.6 : 1,
-          }}
-        >
-          {testingPosture ? 'Testing...' : 'Test Posture Notification'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleTestPostureNotification}
+            disabled={testingPosture}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: testingPosture ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: testingPosture ? 0.6 : 1,
+            }}
+          >
+            {testingPosture ? 'Testing...' : 'Test Toast'}
+          </button>
+          <button
+            onClick={handleTestOverlayPostureNotification}
+            disabled={testingOverlayPosture}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#a29bfe',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: testingOverlayPosture ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              opacity: testingOverlayPosture ? 0.6 : 1,
+            }}
+          >
+            {testingOverlayPosture ? 'Testing...' : 'Test Overlay'}
+          </button>
+        </div>
       </div>
 
       <DetectionSettings

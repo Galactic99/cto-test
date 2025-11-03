@@ -73,6 +73,20 @@ export default defineConfig({
           },
         },
       },
+      {
+        entry: 'src/preload/notifications.ts',
+        onstart(options) {
+          options.reload();
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron/preload',
+            rollupOptions: {
+              external: ['electron'],
+            },
+          },
+        },
+      },
     ]),
     renderer(),
     copyMediaPipeAssets(),
@@ -85,6 +99,7 @@ export default defineConfig({
       input: {
         index: path.resolve(__dirname, 'index.html'),
         sensor: path.resolve(__dirname, 'src/renderer/sensor/index.html'),
+        notifications: path.resolve(__dirname, 'src/renderer/notifications/index.html'),
       },
     },
   },
