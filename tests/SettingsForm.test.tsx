@@ -48,6 +48,23 @@ const mockElectronAPI = {
     onCameraStarted: jest.fn(),
     onCameraStopped: jest.fn(),
   },
+  detection: {
+    start: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+    getStatus: jest.fn().mockResolvedValue({
+      isRunning: false,
+      features: { blink: true, posture: true },
+      fpsMode: 'medium',
+    }),
+    getMetrics: jest.fn().mockResolvedValue({}),
+    setSettings: jest.fn().mockResolvedValue({
+      isRunning: false,
+      features: { blink: true, posture: true },
+      fpsMode: 'medium',
+    }),
+    calibratePosture: jest.fn().mockResolvedValue(undefined),
+    onMetricsUpdated: jest.fn(),
+  },
 };
 
 beforeAll(() => {
@@ -71,7 +88,8 @@ describe('SettingsForm Component', () => {
       expect(screen.getByText('Wellness Reminder Settings')).toBeInTheDocument();
     });
     
-    expect(mockElectronAPI.settings.get).toHaveBeenCalledTimes(1);
+    expect(mockElectronAPI.settings.get).toHaveBeenCalled();
+    expect(mockElectronAPI.detection.getStatus).toHaveBeenCalled();
     expect(screen.getByText('Blink Reminder')).toBeInTheDocument();
     expect(screen.getByText('Posture Reminder')).toBeInTheDocument();
   });

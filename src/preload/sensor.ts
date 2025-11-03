@@ -8,8 +8,16 @@ export interface SensorAPI {
   notifyCameraError: (error: string) => void;
   notifyCameraStarted: () => void;
   notifyCameraStopped: () => void;
-  onDetectionConfigure: (callback: (config: Partial<DetectionSettings>) => void) => void;
+  onDetectionConfigure: (
+    callback: (config: {
+      features: DetectionSettings['features'];
+      fpsMode: DetectionSettings['fpsMode'];
+      postureBaselinePitch?: number;
+    }) => void
+  ) => void;
   sendMetricsUpdate: (metrics: DetectionMetrics) => void;
+  onCalibratePosture: (callback: () => void) => void;
+  sendCalibrationResult: (baseline: number) => void;
 }
 
 const sensorAPI: SensorAPI = {
@@ -28,13 +36,33 @@ const sensorAPI: SensorAPI = {
   notifyCameraStopped: () => {
     ipcRenderer.send('sensor:camera-stopped');
   },
-  onDetectionConfigure: (callback: (config: Partial<DetectionSettings>) => void) => {
-    ipcRenderer.on('detection:configure', (_event, config: Partial<DetectionSettings>) =>
-      callback(config)
+  onDetectionConfigure: (
+    callback: (config: {
+      features: DetectionSettings['features'];
+      fpsMode: DetectionSettings['fpsMode'];
+      postureBaselinePitch?: number;
+    }) => void
+  ) => {
+    ipcRenderer.on(
+      'detection:configure',
+      (
+        _event,
+        config: {
+          features: DetectionSettings['features'];
+          fpsMode: DetectionSettings['fpsMode'];
+          postureBaselinePitch?: number;
+        }
+      ) => callback(config)
     );
   },
   sendMetricsUpdate: (metrics: DetectionMetrics) => {
     ipcRenderer.send('sensor:metrics-update', metrics);
+  },
+  onCalibratePosture: (callback: () => void) => {
+    ipcRenderer.on('sensor:calibrate-posture', () => callback());
+  },
+  sendCalibrationResult: (baseline: number) => {
+    ipcRenderer.send('sensor:calibration-result', baseline);
   },
 };
 

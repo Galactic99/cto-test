@@ -142,10 +142,50 @@ export function registerIpcHandlers(): void {
   );
 
   ipcMain.handle('detection:calibrate:posture', async (): Promise<void> => {
-    console.log('[IPC] Posture calibration requested (stub)');
-    // Stub implementation - to be implemented later
-    // This will eventually trigger a calibration sequence in the sensor window
-    return Promise.resolve();
+    console.log('[IPC] Posture calibration requested');
+    
+    if (!detectionState.isDetectionRunning()) {
+      throw new Error('Cannot calibrate: detection is not running');
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ipcMain.removeListener('sensor:calibration-result', calibrationHandler);
+        reject(new Error('Calibration timeout'));
+      }, 10000);
+
+      const calibrationHandler = (_event: any, baseline: number) => {
+        clearTimeout(timeout);
+        ipcMain.removeListener('sensor:calibration-result', calibrationHandler);
+        
+        console.log('[IPC] Calibration result received:', baseline);
+        
+        const settings = getSettings();
+        setSettings({
+          detection: {
+            ...settings.detection,
+            postureBaselinePitch: baseline,
+            postureCalibrationTimestamp: Date.now(),
+          },
+        });
+        
+        console.log('[IPC] Baseline saved to settings');
+        
+        const updatedSettings = getSettings();
+        sensorWindow.sendToSensor('detection:configure', {
+          features: detectionState.getStatus().features,
+          fpsMode: detectionState.getStatus().fpsMode,
+          postureBaselinePitch: updatedSettings.detection.postureBaselinePitch,
+        });
+        console.log('[IPC] Baseline applied to detection');
+        
+        resolve();
+      };
+
+      ipcMain.once('sensor:calibration-result', calibrationHandler);
+      
+      sensorWindow.sendToSensor('sensor:calibrate-posture');
+    });
   });
 
   // Handler for metrics updates from sensor window

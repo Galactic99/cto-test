@@ -24,9 +24,15 @@ declare global {
       notifyCameraStarted: () => void;
       notifyCameraStopped: () => void;
       onDetectionConfigure: (
-        callback: (config: { features: DetectionFeatures; fpsMode: FpsMode }) => void
+        callback: (config: {
+          features: DetectionFeatures;
+          fpsMode: FpsMode;
+          postureBaselinePitch?: number;
+        }) => void
       ) => void;
       sendMetricsUpdate: (metrics: any) => void;
+      onCalibratePosture: (callback: () => void) => void;
+      sendCalibrationResult: (baseline: number) => void;
     };
     getBlinkMetrics?: () => BlinkMetrics | null;
     getPostureMetrics?: () => PostureMetrics | null;
@@ -36,6 +42,7 @@ declare global {
 interface DetectionConfig {
   features: DetectionFeatures;
   fpsMode: FpsMode;
+  postureBaselinePitch?: number;
 }
 
 let mediaStream: MediaStream | null = null;
@@ -53,6 +60,10 @@ let lastMetricsReportTime = 0;
 let warmupFramesProcessed = 0;
 const WARMUP_FRAMES = 5;
 const METRICS_REPORT_INTERVAL = 5000;
+let isCalibrating = false;
+let calibrationSamples: number[] = [];
+const CALIBRATION_DURATION = 5000;
+let calibrationStartTime = 0;
 
 function getFpsInterval(fpsMode: FpsMode): number {
   switch (fpsMode) {
@@ -129,6 +140,23 @@ function runDetectionLoop(): void {
 
             if (postureDetector && warmupFramesProcessed >= WARMUP_FRAMES) {
               postureDetector.processFrame(result, now);
+
+              if (isCalibrating) {
+                const metrics = postureDetector.getMetrics();
+                calibrationSamples.push(metrics.headPitchAngle);
+
+                if (now - calibrationStartTime >= CALIBRATION_DURATION) {
+                  const averageBaseline =
+                    calibrationSamples.reduce((sum, val) => sum + val, 0) /
+                    calibrationSamples.length;
+                  console.log(
+                    `[Sensor] Calibration complete: baseline=${averageBaseline.toFixed(2)}° (${calibrationSamples.length} samples)`
+                  );
+                  window.sensorAPI.sendCalibrationResult(averageBaseline);
+                  isCalibrating = false;
+                  calibrationSamples = [];
+                }
+              }
             }
           }
         }
@@ -290,6 +318,13 @@ async function initializeModel(): Promise<void> {
       postureDetector = createPostureDetector();
       console.log('[Sensor] Posture detector initialized');
     }
+
+    if (detectionConfig.postureBaselinePitch !== undefined) {
+      postureDetector.setBaseline(detectionConfig.postureBaselinePitch);
+      console.log(
+        `[Sensor] Applied baseline pitch: ${detectionConfig.postureBaselinePitch.toFixed(2)}°`
+      );
+    }
   }
 }
 
@@ -434,6 +469,13 @@ window.sensorAPI.onDetectionConfigure((config) => {
   if (postureDetector && config.features.posture) {
     console.log('[Sensor] Resetting posture detector for new configuration');
     postureDetector.reset();
+    
+    if (config.postureBaselinePitch !== undefined) {
+      postureDetector.setBaseline(config.postureBaselinePitch);
+      console.log(
+        `[Sensor] Applied baseline pitch: ${config.postureBaselinePitch.toFixed(2)}°`
+      );
+    }
   }
 
   if (faceLandmarker && videoElement && mediaStream) {
@@ -441,6 +483,19 @@ window.sensorAPI.onDetectionConfigure((config) => {
     console.log('[Sensor] Restarting detection loop with new config');
     runDetectionLoop();
   }
+});
+
+window.sensorAPI.onCalibratePosture(() => {
+  console.log('[Sensor] Posture calibration requested');
+  if (!postureDetector || !detectionConfig?.features.posture) {
+    console.error('[Sensor] Cannot calibrate: posture detector not available');
+    return;
+  }
+
+  isCalibrating = true;
+  calibrationSamples = [];
+  calibrationStartTime = performance.now();
+  console.log('[Sensor] Starting posture calibration (5 seconds)...');
 });
 
 window.addEventListener('beforeunload', () => {
