@@ -2,6 +2,21 @@ import { BlinkPolicy, createBlinkPolicy } from '../src/main/detection/policy';
 import * as notifications from '../src/main/system/notifications';
 
 jest.mock('../src/main/system/notifications');
+jest.mock('../src/main/system/NotificationManager', () => ({
+  getNotificationManager: jest.fn(() => ({
+    show: jest.fn(),
+    updateConfig: jest.fn(),
+  })),
+}));
+jest.mock('../src/main/store/settings', () => ({
+  getSettings: jest.fn(() => ({
+    notifications: {
+      position: 'top-right',
+      timeout: 5000,
+      soundEnabled: true,
+    },
+  })),
+}));
 
 describe('BlinkPolicy', () => {
   let policy: BlinkPolicy;
@@ -67,6 +82,7 @@ describe('BlinkPolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Low blink rate detected',
         body: expect.stringContaining('8 times per minute'),
+        type: 'blink',
       });
     });
 
@@ -255,6 +271,7 @@ describe('BlinkPolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Low blink rate detected',
         body: expect.stringContaining('7 times per minute'), // Rounded
+        type: 'blink',
       });
     });
 
@@ -267,6 +284,7 @@ describe('BlinkPolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Low blink rate detected',
         body: expect.stringContaining('9 times per minute'),
+        type: 'blink',
       });
     });
   });
@@ -373,6 +391,7 @@ describe('BlinkPolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Low blink rate detected',
         body: expect.stringContaining('0 times per minute'),
+        type: 'blink',
       });
     });
 

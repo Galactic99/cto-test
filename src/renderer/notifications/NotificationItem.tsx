@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { NotificationPayload } from '../../types/notification';
+import { playNotificationSound } from './audio';
 
 interface NotificationItemProps {
   notification: NotificationPayload;
@@ -75,6 +76,11 @@ export function NotificationItem({ notification, position, onDismiss, onExpire }
   useEffect(() => {
     startTimeRef.current = Date.now();
 
+    // Play sound if enabled
+    if (notification.soundEnabled !== false) {
+      playNotificationSound(notification.type);
+    }
+
     const enterTimer = setTimeout(() => {
       setAnimationState('visible');
     }, 300);
@@ -102,7 +108,7 @@ export function NotificationItem({ notification, position, onDismiss, onExpire }
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [timeout, handleExpire]);
+  }, [timeout, handleExpire, notification.soundEnabled, notification.type]);
 
   const animationClass = 
     animationState === 'entering' 

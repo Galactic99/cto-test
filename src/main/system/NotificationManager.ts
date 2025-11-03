@@ -139,7 +139,7 @@ export class NotificationManager {
     title: string,
     body: string,
     type: 'blink' | 'posture',
-    options?: { icon?: string; timeout?: number }
+    options?: { icon?: string; timeout?: number; soundEnabled?: boolean }
   ): string {
     const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -151,6 +151,7 @@ export class NotificationManager {
       icon: options?.icon,
       timeout: options?.timeout || this.config.defaultTimeout,
       position: this.config.position,
+      soundEnabled: options?.soundEnabled,
     };
 
     if (this.activeNotifications.size < this.config.maxVisible) {

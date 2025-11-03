@@ -5,6 +5,13 @@ jest.mock('../src/main/system/notifications', () => ({
   showNotification: jest.fn(),
 }));
 
+jest.mock('../src/main/system/NotificationManager', () => ({
+  getNotificationManager: jest.fn(() => ({
+    show: jest.fn(),
+    updateConfig: jest.fn(),
+  })),
+}));
+
 jest.mock('../src/main/store/settings', () => ({
   getSettings: jest.fn(() => ({
     detection: {
@@ -14,6 +21,11 @@ jest.mock('../src/main/store/settings', () => ({
         blink: true,
         posture: true,
       },
+    },
+    notifications: {
+      position: 'top-right',
+      timeout: 5000,
+      soundEnabled: true,
     },
   })),
 }));

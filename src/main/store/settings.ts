@@ -5,6 +5,7 @@ import {
   PostureSettings,
   AppPreferences,
   DetectionSettings,
+  NotificationSettings,
   DEFAULT_SETTINGS,
 } from '../../types/settings';
 
@@ -78,6 +79,24 @@ const schema = {
       },
     },
   },
+  notifications: {
+    type: 'object',
+    properties: {
+      position: {
+        type: 'string',
+        enum: ['top-right', 'bottom-right', 'top-left', 'bottom-left'],
+      },
+      timeout: {
+        type: 'number',
+        minimum: 1000,
+        maximum: 30000,
+      },
+      soundEnabled: {
+        type: 'boolean',
+      },
+    },
+    required: ['position', 'timeout', 'soundEnabled'],
+  },
 } as const;
 
 // Create the store instance with defaults and schema
@@ -117,6 +136,11 @@ export function setSettings(partialSettings: Partial<AppSettings>): AppSettings 
   if (partialSettings.detection) {
     const currentDetection = store.get('detection');
     store.set('detection', { ...currentDetection, ...partialSettings.detection });
+  }
+
+  if (partialSettings.notifications) {
+    const currentNotifications = store.get('notifications');
+    store.set('notifications', { ...currentNotifications, ...partialSettings.notifications });
   }
 
   // Return the updated settings
@@ -163,12 +187,19 @@ export function subscribeToSettings(
     callback(currentSettings, oldSettings);
   });
 
+  const unsubscribeNotifications = store.onDidChange('notifications', (_newValue: NotificationSettings | undefined, oldValue: NotificationSettings | undefined) => {
+    const currentSettings = getSettings();
+    const oldSettings = { ...currentSettings, notifications: oldValue || currentSettings.notifications };
+    callback(currentSettings, oldSettings);
+  });
+
   // Return combined unsubscribe function
   return () => {
     unsubscribe();
     unsubscribePosture();
     unsubscribeApp();
     unsubscribeDetection();
+    unsubscribeNotifications();
   };
 }
 

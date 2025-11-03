@@ -3,6 +3,12 @@ import * as notifications from '../src/main/system/notifications';
 import * as settingsStore from '../src/main/store/settings';
 
 jest.mock('../src/main/system/notifications');
+jest.mock('../src/main/system/NotificationManager', () => ({
+  getNotificationManager: jest.fn(() => ({
+    show: jest.fn(),
+    updateConfig: jest.fn(),
+  })),
+}));
 jest.mock('../src/main/store/settings');
 
 describe('PosturePolicy', () => {
@@ -22,6 +28,11 @@ describe('PosturePolicy', () => {
     blink: { enabled: true, interval: 20 },
     posture: { enabled: true, interval: 30 },
     app: { startOnLogin: false },
+    notifications: {
+      position: 'top-right' as const,
+      timeout: 5000,
+      soundEnabled: true,
+    },
   };
 
   beforeEach(() => {
@@ -130,6 +141,7 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
         body: expect.stringContaining('40/100'),
+        type: 'posture',
       });
     });
 
@@ -329,6 +341,7 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
         body: expect.stringContaining('35/100'),
+        type: 'posture',
       });
     });
 
@@ -341,6 +354,7 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
         body: expect.stringContaining('43/100'),
+        type: 'posture',
       });
     });
 
@@ -353,6 +367,7 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
         body: expect.stringContaining('Sit upright'),
+        type: 'posture',
       });
     });
   });
@@ -446,6 +461,7 @@ describe('PosturePolicy', () => {
       expect(mockShowNotification).toHaveBeenCalledWith({
         title: 'Poor posture detected',
         body: expect.stringContaining('0/100'),
+        type: 'posture',
       });
     });
 

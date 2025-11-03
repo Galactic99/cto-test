@@ -12,6 +12,8 @@ import * as autostart from './system/autostart';
 import * as sensorWindow from './sensorWindow';
 import { pauseManager } from './pauseManager';
 import * as idleDetection from './system/idleDetection';
+import { getNotificationManager } from './system/NotificationManager';
+import { getSettings, subscribeToSettings } from './store/settings';
 
 // Set app user model ID for Windows notifications
 if (process.platform === 'win32') {
@@ -41,6 +43,29 @@ if (!gotTheLock) {
     // Initialize autostart module
     autostart.initialize();
     console.log('[Main] Autostart initialized');
+
+    // Initialize notification manager with settings
+    const initialSettings = getSettings();
+    const notificationManager = getNotificationManager();
+    notificationManager.updateConfig({
+      position: initialSettings.notifications.position,
+      defaultTimeout: initialSettings.notifications.timeout,
+    });
+    
+    // Subscribe to notification settings changes
+    subscribeToSettings((newSettings, oldSettings) => {
+      if (
+        newSettings.notifications.position !== oldSettings.notifications.position ||
+        newSettings.notifications.timeout !== oldSettings.notifications.timeout
+      ) {
+        console.log('[Main] Notification settings changed, updating manager');
+        notificationManager.updateConfig({
+          position: newSettings.notifications.position,
+          defaultTimeout: newSettings.notifications.timeout,
+        });
+      }
+    });
+    console.log('[Main] Notification manager initialized');
 
     // Create the settings window (hidden by default)
     createSettingsWindow();

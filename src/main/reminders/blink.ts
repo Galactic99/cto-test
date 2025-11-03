@@ -9,6 +9,7 @@ function showBlinkNotification(): void {
   showNotification({
     title: 'Time to blink',
     body: 'Look away for 20 seconds to rest your eyes',
+    type: 'blink',
   });
 }
 

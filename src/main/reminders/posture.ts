@@ -9,6 +9,7 @@ function showPostureNotification(): void {
   showNotification({
     title: 'Check your posture',
     body: 'Sit upright, relax shoulders, feet flat',
+    type: 'posture',
   });
 }
 
